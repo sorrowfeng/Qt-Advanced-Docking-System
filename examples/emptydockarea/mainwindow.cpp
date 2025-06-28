@@ -1,48 +1,52 @@
 #include "mainwindow.h"
 
-#include "ui_mainwindow.h"
-
-#include <QWidgetAction>
-#include <QLabel>
 #include <QCalendarWidget>
-#include <QTreeView>
-#include <QFileSystemModel>
-#include <QTableWidget>
-#include <QHBoxLayout>
-#include <QRadioButton>
-#include <QPushButton>
-#include <QInputDialog>
 #include <QFileDialog>
-#include <QSettings>
+#include <QFileSystemModel>
+#include <QHBoxLayout>
+#include <QInputDialog>
+#include <QLabel>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QPushButton>
+#include <QRadioButton>
+#include <QSettings>
+#include <QTableWidget>
 #include <QToolBar>
+#include <QTreeView>
+#include <QWidgetAction>
 
-#include "DockAreaWidget.h"
-#include "DockAreaTitleBar.h"
 #include "DockAreaTabBar.h"
-#include "FloatingDockContainer.h"
+#include "DockAreaTitleBar.h"
+#include "DockAreaWidget.h"
 #include "DockComponentsFactory.h"
+#include "FloatingDockContainer.h"
+#include "ui_mainwindow.h"
 
 using namespace ads;
 
-
-CMainWindow::CMainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::CMainWindow)
+CMainWindow::CMainWindow(QWidget* parent)
+    : QMainWindow(parent), ui(new Ui::CMainWindow)
 {
     ui->setupUi(this);
-	ads::CDockManager::setConfigFlag( ads::CDockManager::DockAreaHasCloseButton, false );
-	ads::CDockManager::setConfigFlag( ads::CDockManager::AllTabsHaveCloseButton, true );
-	ads::CDockManager::setConfigFlag( ads::CDockManager::DockAreaHasUndockButton, false );
-	ads::CDockManager::setConfigFlag( ads::CDockManager::DockAreaDynamicTabsMenuButtonVisibility, true );
-	ads::CDockManager::setConfigFlag( ads::CDockManager::DisableTabTextEliding, true );
-	ads::CDockManager::setConfigFlag( ads::CDockManager::DoubleClickUndocksWidget, false );
+    ads::CDockManager::setConfigFlag(ads::CDockManager::DockAreaHasCloseButton,
+                                     false);
+    ads::CDockManager::setConfigFlag(ads::CDockManager::AllTabsHaveCloseButton,
+                                     true);
+    ads::CDockManager::setConfigFlag(ads::CDockManager::DockAreaHasUndockButton,
+                                     false);
+    ads::CDockManager::setConfigFlag(
+        ads::CDockManager::DockAreaDynamicTabsMenuButtonVisibility, true);
+    ads::CDockManager::setConfigFlag(ads::CDockManager::DisableTabTextEliding,
+                                     true);
+    ads::CDockManager::setConfigFlag(ads::CDockManager::DoubleClickUndocksWidget,
+                                     false);
     DockManager = new CDockManager(this);
 
     // Set central widget
     QLabel* label = new QLabel();
-    label->setText("This is a DockArea which is always visible, even if it does not contain any DockWidgets.");
+    label->setText("This is a DockArea which is always visible, even if it does "
+                   "not contain any DockWidgets.");
     label->setAlignment(Qt::AlignCenter);
     CDockWidget* CentralDockWidget = new CDockWidget("CentralWidget");
     CentralDockWidget->setWidget(label);
@@ -55,11 +59,13 @@ CMainWindow::CMainWindow(QWidget *parent)
     table->setRowCount(10);
     CDockWidget* TableDockWidget = new CDockWidget("Table 1");
     TableDockWidget->setWidget(table);
-    TableDockWidget->setMinimumSizeHintMode(CDockWidget::MinimumSizeHintFromDockWidget);
+    TableDockWidget->setMinimumSizeHintMode(
+        CDockWidget::MinimumSizeHintFromDockWidget);
     TableDockWidget->resize(250, 150);
-    TableDockWidget->setMinimumSize(200,150);
+    TableDockWidget->setMinimumSize(200, 150);
     DockManager->addDockWidgetTabToArea(TableDockWidget, CentralDockArea);
-    auto TableArea = DockManager->addDockWidget(DockWidgetArea::LeftDockWidgetArea, TableDockWidget);
+    auto TableArea = DockManager->addDockWidget(
+        DockWidgetArea::LeftDockWidgetArea, TableDockWidget);
     ui->menuView->addAction(TableDockWidget->toggleViewAction());
 
     table = new QTableWidget();
@@ -67,10 +73,12 @@ CMainWindow::CMainWindow(QWidget *parent)
     table->setRowCount(1020);
     TableDockWidget = new CDockWidget("Table 2");
     TableDockWidget->setWidget(table);
-    TableDockWidget->setMinimumSizeHintMode(CDockWidget::MinimumSizeHintFromDockWidget);
+    TableDockWidget->setMinimumSizeHintMode(
+        CDockWidget::MinimumSizeHintFromDockWidget);
     TableDockWidget->resize(250, 150);
-    TableDockWidget->setMinimumSize(200,150);
-    DockManager->addDockWidget(DockWidgetArea::BottomDockWidgetArea, TableDockWidget, TableArea);
+    TableDockWidget->setMinimumSize(200, 150);
+    DockManager->addDockWidget(DockWidgetArea::BottomDockWidgetArea,
+                               TableDockWidget, TableArea);
     ui->menuView->addAction(TableDockWidget->toggleViewAction());
 
     QTableWidget* propertiesTable = new QTableWidget();
@@ -78,10 +86,12 @@ CMainWindow::CMainWindow(QWidget *parent)
     propertiesTable->setRowCount(10);
     CDockWidget* PropertiesDockWidget = new CDockWidget("Properties");
     PropertiesDockWidget->setWidget(propertiesTable);
-    PropertiesDockWidget->setMinimumSizeHintMode(CDockWidget::MinimumSizeHintFromDockWidget);
+    PropertiesDockWidget->setMinimumSizeHintMode(
+        CDockWidget::MinimumSizeHintFromDockWidget);
     PropertiesDockWidget->resize(250, 150);
-    PropertiesDockWidget->setMinimumSize(200,150);
-    DockManager->addDockWidget(DockWidgetArea::RightDockWidgetArea, PropertiesDockWidget, CentralDockArea);
+    PropertiesDockWidget->setMinimumSize(200, 150);
+    DockManager->addDockWidget(DockWidgetArea::RightDockWidgetArea,
+                               PropertiesDockWidget, CentralDockArea);
     ui->menuView->addAction(PropertiesDockWidget->toggleViewAction());
 
     createPerspectiveUi();
@@ -92,44 +102,43 @@ CMainWindow::~CMainWindow()
     delete ui;
 }
 
-
 void CMainWindow::createPerspectiveUi()
 {
-	SavePerspectiveAction = new QAction("Create Perspective", this);
-	connect(SavePerspectiveAction, SIGNAL(triggered()), SLOT(savePerspective()));
-	PerspectiveListAction = new QWidgetAction(this);
-	PerspectiveComboBox = new QComboBox(this);
-	PerspectiveComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-	PerspectiveComboBox->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    SavePerspectiveAction = new QAction("Create Perspective", this);
+    connect(SavePerspectiveAction, SIGNAL(triggered()), SLOT(savePerspective()));
+    PerspectiveListAction = new QWidgetAction(this);
+    PerspectiveComboBox = new QComboBox(this);
+    PerspectiveComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    PerspectiveComboBox->setSizePolicy(QSizePolicy::Preferred,
+                                       QSizePolicy::Preferred);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-	connect(PerspectiveComboBox, &QComboBox::textActivated,
-        DockManager, &CDockManager::openPerspective);
+    connect(PerspectiveComboBox, &QComboBox::textActivated, DockManager,
+            &CDockManager::openPerspective);
 #else
-	connect(PerspectiveComboBox, SIGNAL(activated(const QString&)),
-		DockManager, SLOT(openPerspective(const QString&)));
+    connect(PerspectiveComboBox, SIGNAL(activated(const QString&)), DockManager,
+            SLOT(openPerspective(const QString&)));
 #endif
-	PerspectiveListAction->setDefaultWidget(PerspectiveComboBox);
-	ui->toolBar->addSeparator();
-	ui->toolBar->addAction(PerspectiveListAction);
-	ui->toolBar->addAction(SavePerspectiveAction);
+    PerspectiveListAction->setDefaultWidget(PerspectiveComboBox);
+    ui->toolBar->addSeparator();
+    ui->toolBar->addAction(PerspectiveListAction);
+    ui->toolBar->addAction(SavePerspectiveAction);
 }
-
 
 void CMainWindow::savePerspective()
 {
-	QString PerspectiveName = QInputDialog::getText(this, "Save Perspective", "Enter unique name:");
-	if (PerspectiveName.isEmpty())
-	{
-		return;
-	}
+    QString PerspectiveName =
+        QInputDialog::getText(this, "Save Perspective", "Enter unique name:");
+    if (PerspectiveName.isEmpty())
+    {
+        return;
+    }
 
-	DockManager->addPerspective(PerspectiveName);
-	QSignalBlocker Blocker(PerspectiveComboBox);
-	PerspectiveComboBox->clear();
-	PerspectiveComboBox->addItems(DockManager->perspectiveNames());
-	PerspectiveComboBox->setCurrentText(PerspectiveName);
+    DockManager->addPerspective(PerspectiveName);
+    QSignalBlocker Blocker(PerspectiveComboBox);
+    PerspectiveComboBox->clear();
+    PerspectiveComboBox->addItems(DockManager->perspectiveNames());
+    PerspectiveComboBox->setCurrentText(PerspectiveName);
 }
-
 
 //============================================================================
 void CMainWindow::closeEvent(QCloseEvent* event)
@@ -137,7 +146,5 @@ void CMainWindow::closeEvent(QCloseEvent* event)
     // Delete dock manager here to delete all floating widgets. This ensures
     // that all top level windows of the dock manager are properly closed
     DockManager->deleteLater();
-	QMainWindow::closeEvent(event);
+    QMainWindow::closeEvent(event);
 }
-
-

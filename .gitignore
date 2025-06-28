@@ -387,3 +387,6 @@ FodyWeavers.xsd
 /Settings.ini
 .vscode/settings.json
 /.settings
+
+# Other
+install/
