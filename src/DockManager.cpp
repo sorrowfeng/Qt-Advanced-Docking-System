@@ -821,7 +821,7 @@ QByteArray CDockManager::saveState(int version) const
 		s.writeAttribute("Version", QString::number(CurrentVersion));
 		s.writeAttribute("UserVersion", QString::number(version));
 		s.writeAttribute("Containers", QString::number(d->Containers.count()));
-		if (d->CentralWidget)
+        if (d->CentralWidget && !ConfigFlags.testFlag(PerspectivesWithOutCentralWidget))
 		{
 			s.writeAttribute("CentralWidget", d->CentralWidget->objectName());
 		}
