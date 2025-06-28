@@ -69,6 +69,11 @@
 - [Dock Widget Size / Minimum Size Handling](#dock-widget-size--minimum-size-handling)
 - [Styling](#styling)
   - [Disabling the Internal Style Sheet](#disabling-the-internal-style-sheet)
+- [Using ADS on Linux](#using-ads-on-linux)
+  - [Supported Distributions](#supported-distributions)
+  - [Requirements](#requirements)
+  - [Manjaro xfce 25.0.1 and Xubuntu 24.04.2 issues](#manjaro-xfce-2501-and-xubuntu-24042-issues)
+- [OpenGl + ADS](#opengl--ads)
 
 ## Configuration Flags
 
@@ -860,12 +865,12 @@ undock.
 You can use a combination of the following feature flags to define which features
 shall get locked:
 
-- CDockWidget::DockWidgetClosable
-- CDockWidget::DockWidgetMovable
-- CDockWidget::DockWidgetFloatable
-- CDockWidget::DockWidgetPinable
+- `CDockWidget::DockWidgetClosable`
+- `CDockWidget::DockWidgetMovable`
+- `CDockWidget::DockWidgetFloatable`
+- `CDockWidget::DockWidgetPinable`
 
-To clear the locked features, you can use CDockWidget::NoDockWidgetFeatures
+To clear the locked features, you can use `CDockWidget::NoDockWidgetFeatures`
 The following code shows how to lock and unlock all dock widget features
 globally.
 
@@ -953,3 +958,51 @@ just call the function for settings the stylesheet with an empty string.
 DockManager->setStyleSheet("");
 ```
 
+## Using ADS on Linux
+
+### Supported Distributions
+
+Unfortunately, there is no such thing as a Linux operating system. Linux is a heterogeneous environment with a variety of different distributions. So it is not possible to support "Linux" like it is possible for Windows. It is only possible to support and test a small subset of Linux distributions. The library can be compiled for and has been developed and tested with some Linux distributions. Depending on the used window manager or compositor, dock widgets
+with native title bars are supported or not. If native title bars are not supported,
+the library switches to `QWidget` based title bars.
+
+- **Kubuntu 18.04 and 19.10** - uses KWin - no native title bars
+- **Ubuntu 18.04, 19.10 and 20.04** - native title bars are supported
+- **Ubuntu 22.04** - uses Wayland -> no native title bars
+
+### Requirements 
+
+There are some requirements for the Linux distribution that have to be met:
+
+- an X server that supports ARGB visuals and a compositing window manager. This is required to display the translucent dock overlays ([https://doc.qt.io/qt-5/qwidget.html#creating-translucent-windows](https://doc.qt.io/qt-5/qwidget.html#creating-translucent-windows)). If your Linux distribution does not support this, or if you disable this feature, you will very likely see issue [#95](https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/95).
+- Wayland is not properly supported by Qt yet. If you use Wayland, then you should set the session type to x11: `XDG_SESSION_TYPE=x11 ./AdvancedDockingSystemDemo`. You will find more details about this in issue [#288](https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/288).
+
+Screenshot Kubuntu:
+![Advanced Docking on Kubuntu Linux](linux_kubuntu_1804.png)
+
+Screenshot Ubuntu:
+![Advanced Docking on Ubuntu Linux](linux_ubuntu_1910.png)
+
+### Manjaro xfce 25.0.1 and Xubuntu 24.04.2 issues
+
+There is a known focus stealing issue with the xfce4 compositor reported in issue [#734]. This issue
+can be solved by enabling the setting **Activate focus stealing prevention**. `Settings > Window Manager Tweaks` has a tab called `Focus`.
+
+Selecting `Activate focus stealing prevention` and `Do nothing` for `When a window raises itself`, seems to mitigate the issue. Deselecting `Enable display compositing` on the `Compositor` tab, also works.
+
+![Window Manager Tweaks](xfce4_focus_stealing_issue.png)
+
+## OpenGl + ADS
+
+If you would like to use OpenGL widgets with ADS such as `GLWidget`, QML or `QWebEngineView`, then you need
+to set `QApplication::setAttribute(Qt::AA_ShareOpenGLContexts)` before creating your application and your
+widgets (see issue [#732])
+
+```c++
+int main(int argc, char *argv[])
+{
+  QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+  QApplication application(argc, argv);
+  ...
+}
+```

@@ -7,10 +7,16 @@ if (${QT_VERSION_MAJOR})
 else()
   find_package(QT NAMES Qt6 Qt5 COMPONENTS Core REQUIRED)
 endif()
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Gui Widgets REQUIRED)
-if (UNIX AND NOT APPLE)
+
+set(ads_DEP_LIBS Core Gui Widgets)
+if (UNIX AND NOT APPLE AND QT_VERSION_MAJOR STREQUAL "6" AND QT_VERSION_MINOR GREATER 8)
+    set(ads_DEP_LIBS Core Gui GuiPrivate Widgets)
+endif()
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS ${ads_DEP_LIBS} REQUIRED)
+if (UNIX AND NOT APPLE AND QT_VERSION_MAJOR STREQUAL "6" AND QT_VERSION_MINOR GREATER 8)
     include_directories(${Qt${QT_VERSION_MAJOR}Gui_PRIVATE_INCLUDE_DIRS})
 endif()
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 if(BUILD_STATIC)
     set(CMAKE_STATIC_LIBRARY_SUFFIX "_static${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -85,6 +91,11 @@ add_library(ads::${library_name} ALIAS ${library_name})
 target_link_libraries(${library_name} PUBLIC Qt${QT_VERSION_MAJOR}::Core 
                                                Qt${QT_VERSION_MAJOR}::Gui 
                                                Qt${QT_VERSION_MAJOR}::Widgets)
+
+if(QT_VERSION_MAJOR STREQUAL "6")
+    target_link_libraries(${library_name} PRIVATE Qt6::GuiPrivate) #needed for <qpa/qplatformnativeinterface.h>
+endif()
+
 if (UNIX AND NOT APPLE)
   if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
       find_package(X11 REQUIRED)
@@ -127,7 +138,7 @@ install(FILES ${ads_HEADERS}
 install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE"
     "${CMAKE_CURRENT_SOURCE_DIR}/../gnu-lgpl-v2.1.md"
-    DESTINATION license/ads
+    DESTINATION share/ads/license
     COMPONENT license
 )
 install(TARGETS ${library_name}
