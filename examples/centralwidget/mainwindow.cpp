@@ -34,7 +34,8 @@ CMainWindow::CMainWindow(QWidget *parent)
     ui->setupUi(this);
     CDockManager::setConfigFlag(CDockManager::OpaqueSplitterResize, true);
     CDockManager::setConfigFlag(CDockManager::XmlCompressionEnabled, false);
-    CDockManager::setConfigFlag(CDockManager::FocusHighlighting, true);
+    CDockManager::setConfigFlag(CDockManager::PerspectivesWithOutCentralWidget, true);
+    CDockManager::setConfigFlag(CDockManager::FluentUIDarkStyleSheet, true);
     DockManager = new CDockManager(this);
 
     // Set central widget
@@ -91,7 +92,9 @@ CMainWindow::~CMainWindow()
 void CMainWindow::createPerspectiveUi()
 {
 	SavePerspectiveAction = new QAction("Create Perspective", this);
-	connect(SavePerspectiveAction, SIGNAL(triggered()), SLOT(savePerspective()));
+    connect(SavePerspectiveAction, SIGNAL(triggered()), SLOT(savePerspective()));
+    ChangeThemeAction = new QAction("Change theme", this);
+    connect(ChangeThemeAction, SIGNAL(triggered()), SLOT(changeTheme()));
 	PerspectiveListAction = new QWidgetAction(this);
 	PerspectiveComboBox = new QComboBox(this);
 	PerspectiveComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
@@ -101,7 +104,23 @@ void CMainWindow::createPerspectiveUi()
 	PerspectiveListAction->setDefaultWidget(PerspectiveComboBox);
 	ui->toolBar->addSeparator();
 	ui->toolBar->addAction(PerspectiveListAction);
-	ui->toolBar->addAction(SavePerspectiveAction);
+    ui->toolBar->addAction(SavePerspectiveAction);
+    ui->toolBar->addAction(ChangeThemeAction);
+}
+
+void CMainWindow::changeTheme()
+{
+    if (CDockManager::testConfigFlag(CDockManager::FluentUILightStyleSheet))
+    {
+        CDockManager::setConfigFlag(CDockManager::FluentUIDarkStyleSheet, true);
+        CDockManager::setConfigFlag(CDockManager::FluentUILightStyleSheet, false);
+    }
+    else
+    {
+        CDockManager::setConfigFlag(CDockManager::FluentUIDarkStyleSheet, false);
+        CDockManager::setConfigFlag(CDockManager::FluentUILightStyleSheet, true);
+    }
+    DockManager->loadStyleSheet();
 }
 
 

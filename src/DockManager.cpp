@@ -205,8 +205,20 @@ void DockManagerPrivate::loadStylesheet()
 	initResource();
 	QString Result;
 	QString FileName = ":ads/stylesheets/";
-	FileName += CDockManager::testConfigFlag(CDockManager::FocusHighlighting)
-		? "focus_highlighting" : "default";
+    QString BaseName = "default";
+    if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
+    {
+        BaseName = "focus_highlighting";
+	}
+    else if (CDockManager::testConfigFlag(CDockManager::FluentUILightStyleSheet))
+    {
+        BaseName = "fluent_ui_light";
+    }
+    else if (CDockManager::testConfigFlag(CDockManager::FluentUIDarkStyleSheet))
+    {
+        BaseName = "fluent_ui_dark";
+    }
+    FileName += BaseName;
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     FileName += "_linux";
 #endif
@@ -1512,6 +1524,11 @@ void CDockManager::lockDockWidgetFeaturesGlobally(CDockWidget::DockWidgetFeature
     {
     	DockWidget->notifyFeaturesChanged();
     }
+}
+
+void CDockManager::loadStyleSheet()
+{
+    d->loadStylesheet();
 }
 
 

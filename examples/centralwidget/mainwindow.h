@@ -28,6 +28,7 @@ private:
 	QAction* SavePerspectiveAction = nullptr;
 	QWidgetAction* PerspectiveListAction = nullptr;
 	QComboBox* PerspectiveComboBox = nullptr;
+    QAction* ChangeThemeAction = nullptr;
 
     Ui::CMainWindow *ui;
 
@@ -36,6 +37,7 @@ private:
     ads::CDockWidget* TimelineDockWidget;
 
     void createPerspectiveUi();
+    void changeTheme();
 
 private slots:
 	void savePerspective();
