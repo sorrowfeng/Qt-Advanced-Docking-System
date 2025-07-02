@@ -314,7 +314,7 @@ bool DockManagerPrivate::restoreStateFromXml(const QByteArray &state,  int versi
 #endif
     ADS_PRINT(DockContainers);
 
-    if (CentralWidget)
+    if (CentralWidget && !CDockManager::testConfigFlag(CDockManager::PerspectivesWithOutCentralWidget))
     {
 		const auto CentralWidgetAttribute = s.attributes().value("CentralWidget");
 		// If we have a central widget but a state without central widget, then

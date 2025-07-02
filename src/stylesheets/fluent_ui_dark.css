@@ -147,6 +147,7 @@ QScrollArea#dockWidgetScrollArea {
 ads--CAutoHideTab {
 	qproperty-iconSize: 16px 16px;
 	background: none;
+	color: #d0d0d0;
 	border: none;
 	padding-left: 2px;
 	padding-right: 0px;

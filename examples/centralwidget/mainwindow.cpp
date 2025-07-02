@@ -17,6 +17,7 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QToolBar>
+#include <QStatusBar>
 
 #include "DockAreaWidget.h"
 #include "DockAreaTitleBar.h"
@@ -36,6 +37,8 @@ CMainWindow::CMainWindow(QWidget *parent)
     CDockManager::setConfigFlag(CDockManager::XmlCompressionEnabled, false);
     CDockManager::setConfigFlag(CDockManager::PerspectivesWithOutCentralWidget, true);
     CDockManager::setConfigFlag(CDockManager::FluentUIDarkStyleSheet, true);
+    CDockManager::setAutoHideConfigFlags({CDockManager::DefaultAutoHideConfig});
+
     DockManager = new CDockManager(this);
 
     // Set central widget
@@ -81,6 +84,13 @@ CMainWindow::CMainWindow(QWidget *parent)
     ui->menuView->addAction(PropertiesDockWidget->toggleViewAction());
 
     createPerspectiveUi();
+
+
+    QStatusBar* statusBar = new QStatusBar(this);
+    QLabel* statusLabel = new QLabel(this);
+    statusLabel->setText(tr("NULL INFO"));
+    statusBar->addWidget(statusLabel);
+    this->setStatusBar(statusBar);
 }
 
 CMainWindow::~CMainWindow()
@@ -94,7 +104,7 @@ void CMainWindow::createPerspectiveUi()
 	SavePerspectiveAction = new QAction("Create Perspective", this);
     connect(SavePerspectiveAction, SIGNAL(triggered()), SLOT(savePerspective()));
     ChangeThemeAction = new QAction("Change theme", this);
-    connect(ChangeThemeAction, SIGNAL(triggered()), SLOT(changeTheme()));
+    connect(ChangeThemeAction, &QAction::triggered, this, &CMainWindow::changeTheme);
 	PerspectiveListAction = new QWidgetAction(this);
 	PerspectiveComboBox = new QComboBox(this);
 	PerspectiveComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
