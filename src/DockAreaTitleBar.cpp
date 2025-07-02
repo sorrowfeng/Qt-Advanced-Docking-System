@@ -192,7 +192,8 @@ void DockAreaTitleBarPrivate::createButtons()
 	TabsMenuButton->setAutoRaise(true);
 	TabsMenuButton->setPopupMode(QToolButton::InstantPopup);
 	internal::setButtonIcon(TabsMenuButton, QStyle::SP_TitleBarUnshadeButton, ads::DockAreaMenuIcon);
-	QMenu* TabsMenu = new QMenu(TabsMenuButton);
+    QMenu* TabsMenu = new QMenu(TabsMenuButton);
+    TabsMenu->setObjectName("tabsMenu");
 #ifndef QT_NO_TOOLTIP
 	TabsMenu->setToolTipsVisible(true);
 #endif
