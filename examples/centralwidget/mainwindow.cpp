@@ -52,6 +52,10 @@ CMainWindow::CMainWindow(QWidget* parent)
     QTableWidget* table = new QTableWidget();
     table->setColumnCount(3);
     table->setRowCount(10);
+    for (int row = 0; row < table->rowCount(); ++row)
+        for (int col = 0; col < table->columnCount(); ++col)
+            table->setItem(row, col, new QTableWidgetItem(QString("Text %1.%2").arg(row).arg(col)));
+
     CDockWidget* TableDockWidget = DockManager->createDockWidget("Table 1");
     TableDockWidget->setWidget(table);
     TableDockWidget->setMinimumSizeHintMode(
@@ -64,7 +68,11 @@ CMainWindow::CMainWindow(QWidget* parent)
 
     table = new QTableWidget();
     table->setColumnCount(5);
-    table->setRowCount(1020);
+    table->setRowCount(50);
+    for (int row = 0; row < table->rowCount(); ++row)
+        for (int col = 0; col < table->columnCount(); ++col)
+            table->setItem(row, col, new QTableWidgetItem(QString("Text %1.%2").arg(row).arg(col)));
+
     TableDockWidget = DockManager->createDockWidget("Table 2");
     TableDockWidget->setWidget(table);
     TableDockWidget->setMinimumSizeHintMode(
@@ -75,12 +83,16 @@ CMainWindow::CMainWindow(QWidget* parent)
                                TableDockWidget, TableArea);
     ui->menuView->addAction(TableDockWidget->toggleViewAction());
 
-    QTableWidget* propertiesTable = new QTableWidget();
-    propertiesTable->setColumnCount(3);
-    propertiesTable->setRowCount(10);
+    table = new QTableWidget();
+    table->setColumnCount(3);
+    table->setRowCount(10);
+    for (int row = 0; row < table->rowCount(); ++row)
+        for (int col = 0; col < table->columnCount(); ++col)
+            table->setItem(row, col, new QTableWidgetItem(QString("Text %1.%2").arg(row).arg(col)));
+
     CDockWidget* PropertiesDockWidget =
         DockManager->createDockWidget("Properties");
-    PropertiesDockWidget->setWidget(propertiesTable);
+    PropertiesDockWidget->setWidget(table);
     PropertiesDockWidget->setMinimumSizeHintMode(
         CDockWidget::MinimumSizeHintFromDockWidget);
     PropertiesDockWidget->resize(250, 150);

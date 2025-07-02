@@ -46,6 +46,19 @@ ads--CTitleBarButton {
 #tabsMenuButton::menu-indicator {
 	image: none;
 }
+#tabsMenuButton {
+	qproperty-icon: url(:/ads/images/tabs-menu-button.svg);
+	qproperty-iconSize: 16px;
+}
+#tabsMenu {
+	background: #f3f3f3;
+	color: #000000;
+}
+#tabsMenu::item:selected {
+    background: #0078d4;
+    color: #ffffff;
+}
+
 
 #dockAreaCloseButton {
 	qproperty-icon: url(:/ads/images/close-button.svg),
