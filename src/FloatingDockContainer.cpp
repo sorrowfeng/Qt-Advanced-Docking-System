@@ -653,6 +653,9 @@ CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 	tFloatingWidgetBase(DockManager),
 	d(new FloatingDockContainerPrivate(this))
 {
+#if FLOATING_DOCK_FRAMELESS
+    this->setWindowFlag(Qt::FramelessWindowHint, true);
+#endif
 	d->DockManager = DockManager;
 	d->DockContainer = new CDockContainerWidget(DockManager, this);
 	connect(d->DockContainer, SIGNAL(dockAreasAdded()), this,
@@ -735,6 +738,9 @@ CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 CFloatingDockContainer::CFloatingDockContainer(CDockAreaWidget *DockArea) :
 	CFloatingDockContainer(DockArea->dockManager())
 {
+#if FLOATING_DOCK_FRAMELESS
+    this->setWindowFlag(Qt::FramelessWindowHint, true);
+#endif
 	d->DockContainer->addDockArea(DockArea);
 
     auto TopLevelDockWidget = topLevelDockWidget();
@@ -750,6 +756,10 @@ CFloatingDockContainer::CFloatingDockContainer(CDockAreaWidget *DockArea) :
 CFloatingDockContainer::CFloatingDockContainer(CDockWidget *DockWidget) :
 	CFloatingDockContainer(DockWidget->dockManager())
 {
+#if FLOATING_DOCK_FRAMELESS
+    this->setWindowFlag(Qt::FramelessWindowHint, true); 
+#endif
+
 	d->DockContainer->addDockWidget(CenterDockWidgetArea, DockWidget);
     auto TopLevelDockWidget = topLevelDockWidget();
     if (TopLevelDockWidget)

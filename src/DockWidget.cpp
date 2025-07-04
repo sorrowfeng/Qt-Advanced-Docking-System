@@ -368,6 +368,7 @@ void DockWidgetPrivate::setToolBarStyleFromDockManager()
 CDockWidget::CDockWidget(const QString &title, QWidget *parent) :
       CDockWidget(nullptr, title, parent)
 {
+
 }
 
 

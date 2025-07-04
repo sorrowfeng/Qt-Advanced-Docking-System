@@ -31,6 +31,10 @@ project(QtADS LANGUAGES CXX VERSION ${VERSION_SHORT})
 
 option(BUILD_STATIC "Build the static library" OFF)
 option(BUILD_EXAMPLES "Build the examples" ON)
+option(FLOATING_DOCK_FRAMELESS "CFloatingDockContainer is frameless" OFF)
+
+add_compile_definitions(FLOATING_DOCK_FRAMELESS=$<BOOL:${FLOATING_DOCK_FRAMELESS}>)
+
 
 if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
     set(ads_PlatformDir "x86")
