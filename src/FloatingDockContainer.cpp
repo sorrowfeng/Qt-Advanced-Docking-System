@@ -1,4 +1,4 @@
-/*******************************************************************************
+﻿/*******************************************************************************
  ** Qt Advanced Docking System
  ** Copyright (C) 2017 Uwe Kindler
  **
@@ -30,6 +30,8 @@
 
 #include <iostream>
 
+#include <QScreen>
+#include <QPainter>
 #include <QBoxLayout>
 #include <QApplication>
 #include <QMouseEvent>
@@ -55,6 +57,11 @@
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
 #include "linux/FloatingWidgetTitleBar.h"
 #include <xcb/xcb.h>
+#endif
+
+
+#if FLOATING_DOCK_FRAMELESS
+#include "FloatingDockTitleBar.h"
 #endif
 
 namespace ads
@@ -381,6 +388,10 @@ struct FloatingDockContainerPrivate
     bool MousePressed = false;
 #endif
 
+#if FLOATING_DOCK_FRAMELESS
+    FloatingDockTitleBar* TitleBar = nullptr;
+#endif
+
 	/**
 	 * Private data constructor
 	 */
@@ -432,6 +443,9 @@ struct FloatingDockContainerPrivate
 		}
 #endif
 		_this->setWindowTitle(Text);
+#if FLOATING_DOCK_FRAMELESS
+        TitleBar->setWindowTitle(Text);
+#endif
 	}
 
 	/**
@@ -648,14 +662,43 @@ void FloatingDockContainerPrivate::handleEscapeKey()
 }
 
 
+#if FLOATING_DOCK_FRAMELESS
+#include <QPaintEvent>
+#include <QPainter>
+class SnapPreviewWidget : public QWidget
+{
+public:
+    SnapPreviewWidget(QWidget* parent = nullptr)
+        : QWidget(parent,
+                  Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+
+        setStyleSheet("background-color: transparent;");
+        setFocusPolicy(Qt::NoFocus);
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setBrush(Qt::NoBrush);
+        QPen pen(Qt::gray, 2);
+        pen.setDashPattern({4, 4});
+        p.setPen(pen);
+        p.drawRect(rect().adjusted(1, 1, -1, -1));
+    }
+};
+#endif
+
+
+
 //============================================================================
 CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 	tFloatingWidgetBase(DockManager),
 	d(new FloatingDockContainerPrivate(this))
 {
-#if FLOATING_DOCK_FRAMELESS
-    this->setWindowFlag(Qt::FramelessWindowHint, true);
-#endif
 	d->DockManager = DockManager;
 	d->DockContainer = new CDockContainerWidget(DockManager, this);
 	connect(d->DockContainer, SIGNAL(dockAreasAdded()), this,
@@ -722,12 +765,32 @@ CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 				this, &CFloatingDockContainer::onMaximizeRequest);
 	}
 #else
-	setWindowFlags(
-	    Qt::Window | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
+
+
+#if FLOATING_DOCK_FRAMELESS
+    d->TitleBar = new FloatingDockTitleBar(this);
+    connect(d->TitleBar, &FloatingDockTitleBar::maximizeRequested, this, [=]() {
+        if (isMaximized())
+            showNormal();
+        else
+            showMaximized();
+		});
+    connect(d->TitleBar, &FloatingDockTitleBar::closeRequested, this,
+            &QWidget::close);
+
+    setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
+#else
+    setWindowFlags(Qt::Window | Qt::WindowMaximizeButtonHint
+                   | Qt::WindowCloseButtonHint);
+#endif
+
 	QBoxLayout *l = new QBoxLayout(QBoxLayout::TopToBottom);
 	l->setContentsMargins(0, 0, 0, 0);
 	l->setSpacing(0);
-	setLayout(l);
+    setLayout(l);
+#if FLOATING_DOCK_FRAMELESS
+    l->addWidget(d->TitleBar);
+#endif
 	l->addWidget(d->DockContainer);
 #endif
 
@@ -738,9 +801,6 @@ CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 CFloatingDockContainer::CFloatingDockContainer(CDockAreaWidget *DockArea) :
 	CFloatingDockContainer(DockArea->dockManager())
 {
-#if FLOATING_DOCK_FRAMELESS
-    this->setWindowFlag(Qt::FramelessWindowHint, true);
-#endif
 	d->DockContainer->addDockArea(DockArea);
 
     auto TopLevelDockWidget = topLevelDockWidget();
@@ -756,10 +816,6 @@ CFloatingDockContainer::CFloatingDockContainer(CDockAreaWidget *DockArea) :
 CFloatingDockContainer::CFloatingDockContainer(CDockWidget *DockWidget) :
 	CFloatingDockContainer(DockWidget->dockManager())
 {
-#if FLOATING_DOCK_FRAMELESS
-    this->setWindowFlag(Qt::FramelessWindowHint, true); 
-#endif
-
 	d->DockContainer->addDockWidget(CenterDockWidgetArea, DockWidget);
     auto TopLevelDockWidget = topLevelDockWidget();
     if (TopLevelDockWidget)
@@ -863,6 +919,7 @@ void CFloatingDockContainer::changeEvent(QEvent *event)
 }
 
 
+
 #ifdef Q_OS_WIN
 #if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 bool CFloatingDockContainer::nativeEvent(const QByteArray &eventType, void *message, long *result)
@@ -873,107 +930,257 @@ bool CFloatingDockContainer::nativeEvent(const QByteArray &eventType, void *mess
 	QWidget::nativeEvent(eventType, message, result);
 	MSG *msg = static_cast<MSG*>(message);
 	switch (msg->message)
-	{
+    {
+#if FLOATING_DOCK_FRAMELESS
+		case WM_NCHITTEST:
+		{
+			const int border = 8;
+			QPoint pos = mapFromGlobal(QCursor::pos());
+
+			bool left = pos.x() < border;
+			bool right = pos.x() >= width() - border;
+			bool top = pos.y() < border;
+			bool bottom = pos.y() >= height() - border;
+
+            // 先检测边缘缩放区域
+            if (left || right || top || bottom)
+            {
+                if (left && top) { *result = HTTOPLEFT; return true; }
+                else if (right && top) { *result = HTTOPRIGHT; return true; }
+                else if (left && bottom) { *result = HTBOTTOMLEFT; return true; }
+                else if (right && bottom) { *result = HTBOTTOMRIGHT; return true; }
+                else if (left) { *result = HTLEFT; return true; }
+                else if (right) { *result = HTRIGHT; return true; }
+                else if (top) { *result = HTTOP; return true; }
+                else if (bottom) { *result = HTBOTTOM; return true; }
+            }
+
+			// 如果在标题栏内，则允许拖动
+            if (d->TitleBar && d->TitleBar->dragArea().contains(pos))
+			{
+                *result = HTCAPTION;
+                return true;
+			}
+
+			*result = HTCLIENT;
+			return true;
+		}
+#endif
 		case WM_MOVING:
 		{
 			if (d->isState(DraggingFloatingWidget))
-			{
+            {
 				d->updateDropOverlays(QCursor::pos());
+
+#if FLOATING_DOCK_FRAMELESS
+                // 获取当前窗口位置
+                RECT* rect = (RECT*)msg->lParam;
+                QPoint newPos(rect->left, rect->top);
+                QSize newSize(rect->right - rect->left, rect->bottom - rect->top);
+
+                // 更新窗口位置（可选，系统已经自动更新）
+                this->move(newPos);
+                this->resize(newSize);
+
+                // 实时检测 Snap 并显示预览框
+                checkSnapPreview(newPos, newSize);
+#endif
 			}
 		}
 		break;
 
 		case WM_NCLBUTTONDOWN:
-			 if (msg->wParam == HTCAPTION && d->isState(DraggingInactive))
-			 {
-				ADS_PRINT("CFloatingDockContainer::nativeEvent WM_NCLBUTTONDOWN");
-				d->DragStartPos = pos();
-				d->setState(DraggingMousePressed);
-			 }
-			 break;
-
-		case WM_NCLBUTTONDBLCLK:
-			 d->setState(DraggingInactive);
-			 break;
-
-		case WM_ENTERSIZEMOVE:
-			 if (d->isState(DraggingMousePressed))
-			 {
-				ADS_PRINT("CFloatingDockContainer::nativeEvent WM_ENTERSIZEMOVE");
-				d->setState(DraggingFloatingWidget);
-				d->updateDropOverlays(QCursor::pos());
-			 }
-			 break;
-
-		case WM_EXITSIZEMOVE:
-			 if (d->isState(DraggingFloatingWidget))
-			 {
-				ADS_PRINT("CFloatingDockContainer::nativeEvent WM_EXITSIZEMOVE");
-				if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
-				{
-					d->handleEscapeKey();
-				}
-				else
-				{
-					d->titleMouseReleaseEvent();
-				}
-			 }
-			 break;
+        {
+            if (msg->wParam == HTCAPTION && d->isState(DraggingInactive))
+            {
+                ADS_PRINT("CFloatingDockContainer::nativeEvent WM_NCLBUTTONDOWN");
+                d->DragStartPos = pos();
+                d->setState(DraggingMousePressed);
+            }
+            break;
+        }
+        case WM_NCLBUTTONDBLCLK:
+        {
+            d->setState(DraggingInactive);
+            break;
+        }
+        case WM_ENTERSIZEMOVE:
+        {
+            if (d->isState(DraggingMousePressed))
+            {
+                ADS_PRINT("CFloatingDockContainer::nativeEvent WM_ENTERSIZEMOVE");
+                d->setState(DraggingFloatingWidget);
+                d->updateDropOverlays(QCursor::pos());
+            }
+            break;
+        }
+        case WM_EXITSIZEMOVE:
+        {
+            if (d->isState(DraggingFloatingWidget))
+            {
+                ADS_PRINT("CFloatingDockContainer::nativeEvent WM_EXITSIZEMOVE");
+                if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
+                {
+                    d->handleEscapeKey();
+                }
+                else
+                {
+                    d->titleMouseReleaseEvent();
+                }
+				#if FLOATING_DOCK_FRAMELESS
+                checkSnap();
+				#endif
+            }
+            break;
+        }
 	}
 	return false;
 }
 #endif
 
 
-//============================================================================
-void CFloatingDockContainer::closeEvent(QCloseEvent *event)
+#if FLOATING_DOCK_FRAMELESS
+void CFloatingDockContainer::showSnapPreview(const QRect& rect)
 {
-	ADS_PRINT("CFloatingDockContainer closeEvent");
-	d->setState(DraggingInactive);
-	event->ignore();
-	if (!isClosable())
-	{
-		return;
-	}
+    if (!snapPreviewWidget)
+    {
+        snapPreviewWidget = new SnapPreviewWidget();
+    }
 
-	bool HasOpenDockWidgets = false;
-	for (auto DockWidget : d->DockContainer->openedDockWidgets())
-	{
-		if (DockWidget->features().testFlag(CDockWidget::DockWidgetDeleteOnClose) || DockWidget->features().testFlag(CDockWidget::CustomCloseHandling))
-		{
-			bool Closed = DockWidget->closeDockWidgetInternal();
-			if (!Closed)
-			{
-				HasOpenDockWidgets = true;
-			}
-		}
-		else
-		{
-			DockWidget->toggleView(false);
-		}
-	}
+    snapPreviewWidget->setGeometry(rect);
+    snapPreviewWidget->show();
+}
 
-	if (HasOpenDockWidgets)
-	{
-		return;
-	}
+void CFloatingDockContainer::hideSnapPreview()
+{
+    if (snapPreviewWidget)
+    {
+        snapPreviewWidget->hide();
+    }
+}
 
-	// In Qt version after 5.9.2 there seems to be a bug that causes the
-	// QWidget::event() function to not receive any NonClientArea mouse
-	// events anymore after a close/show cycle. The bug is reported here:
-	// https://bugreports.qt.io/browse/QTBUG-73295
-	// The following code is a workaround for Qt versions > 5.9.2 that seems
-	// to work
-	// Starting from Qt version 5.12.2 this seems to work again. But
-	// now the QEvent::NonClientAreaMouseButtonPress function returns always
-	// Qt::RightButton even if the left button was pressed
-	this->hide();
+void CFloatingDockContainer::checkSnapPreview(const QPoint& pos,
+                                              const QSize& size)
+{
+    auto curPos = QCursor::pos();
+    auto screen = QApplication::screenAt(curPos);
+    if (!screen)
+        screen = QApplication::primaryScreen();
+    QRect screenGeometry = screen->availableVirtualGeometry();
+
+    int snapDistance = 10;
+
+    QRect previewRect;
+
+    // 检测顶部贴边（最大化）
+    if (std::abs(curPos.y() - screenGeometry.top()) < snapDistance)
+    {
+        previewRect = screenGeometry;
+    }
+    // 检测左侧贴边（左半屏）
+    else if (std::abs(curPos.x() - screenGeometry.left()) < snapDistance)
+    {
+        previewRect = QRect(screenGeometry.left(), screenGeometry.top(),
+                            screenGeometry.width() / 2, screenGeometry.height());
+    }
+    // 检测右侧贴边（右半屏）
+    else if (std::abs(curPos.x() - screenGeometry.right()) < snapDistance)
+    {
+        previewRect = QRect(screenGeometry.right() - size.width(),
+                            screenGeometry.top(), screenGeometry.width() / 2,
+                            screenGeometry.height());
+    }
+    else
+    {
+        hideSnapPreview();
+        return;
+    }
+
+    showSnapPreview(previewRect);
+}
+
+void CFloatingDockContainer::checkSnap()
+{
+    auto curPos = QCursor::pos();
+    auto screen = QApplication::screenAt(curPos);
+    if (!screen)
+        screen = QApplication::primaryScreen();
+    QRect screenGeometry = screen->availableVirtualGeometry();
+
+    int snapDistance = 30;
+
+    if (std::abs(curPos.y() - screenGeometry.top()) < snapDistance)
+    {
+        this->showMaximized();
+    }
+    else if (std::abs(curPos.x() - screenGeometry.left()) < snapDistance)
+    {
+        resize(screenGeometry.width() / 2, screenGeometry.height());
+        move(screenGeometry.left(), screenGeometry.top());
+    }
+    else if (std::abs(curPos.x() - screenGeometry.right()) < snapDistance)
+    {
+        resize(screenGeometry.width() / 2, screenGeometry.height());
+        move(screenGeometry.right() - this->width(), screenGeometry.top());
+    }
+
+    // 隐藏预览框
+    hideSnapPreview();
+}
+#endif
+
+
+
+//============================================================================
+void CFloatingDockContainer::closeEvent(QCloseEvent* event)
+{
+    ADS_PRINT("CFloatingDockContainer closeEvent");
+    d->setState(DraggingInactive);
+    event->ignore();
+    if (!isClosable())
+    {
+        return;
+    }
+
+    bool HasOpenDockWidgets = false;
+    for (auto DockWidget : d->DockContainer->openedDockWidgets())
+    {
+        if (DockWidget->features().testFlag(CDockWidget::DockWidgetDeleteOnClose)
+            || DockWidget->features().testFlag(CDockWidget::CustomCloseHandling))
+        {
+            bool Closed = DockWidget->closeDockWidgetInternal();
+            if (!Closed)
+            {
+                HasOpenDockWidgets = true;
+            }
+        }
+        else
+        {
+            DockWidget->toggleView(false);
+        }
+    }
+
+    if (HasOpenDockWidgets)
+    {
+        return;
+    }
+
+    // In Qt version after 5.9.2 there seems to be a bug that causes the
+    // QWidget::event() function to not receive any NonClientArea mouse
+    // events anymore after a close/show cycle. The bug is reported here:
+    // https://bugreports.qt.io/browse/QTBUG-73295
+    // The following code is a workaround for Qt versions > 5.9.2 that seems
+    // to work
+    // Starting from Qt version 5.12.2 this seems to work again. But
+    // now the QEvent::NonClientAreaMouseButtonPress function returns always
+    // Qt::RightButton even if the left button was pressed
+    this->hide();
 }
 
 //============================================================================
-void CFloatingDockContainer::hideEvent(QHideEvent *event)
+void CFloatingDockContainer::hideEvent(QHideEvent* event)
 {
-	Super::hideEvent(event);
+    Super::hideEvent(event);
     if (event->spontaneous())
     {
         return;
@@ -985,25 +1192,24 @@ void CFloatingDockContainer::hideEvent(QHideEvent *event)
         return;
     }
 
-	if ( d->AutoHideChildren )
-	{
-		d->Hiding = true;
-		for ( auto DockArea : d->DockContainer->openedDockAreas() )
-		{
-			for ( auto DockWidget : DockArea->openedDockWidgets() )
-			{
-				DockWidget->toggleView( false );
-			}
-		}
-		d->Hiding = false;
-	}
+    if (d->AutoHideChildren)
+    {
+        d->Hiding = true;
+        for (auto DockArea : d->DockContainer->openedDockAreas())
+        {
+            for (auto DockWidget : DockArea->openedDockWidgets())
+            {
+                DockWidget->toggleView(false);
+            }
+        }
+        d->Hiding = false;
+    }
 }
 
-
 //============================================================================
-void CFloatingDockContainer::showEvent(QShowEvent *event)
+void CFloatingDockContainer::showEvent(QShowEvent* event)
 {
-	Super::showEvent(event);
+    Super::showEvent(event);
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
     {
@@ -1011,7 +1217,6 @@ void CFloatingDockContainer::showEvent(QShowEvent *event)
     }
 #endif
 }
-
 
 //============================================================================
 void CFloatingDockContainer::startFloating(const QPoint &DragStartMousePos,

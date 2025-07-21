@@ -178,6 +178,14 @@ protected: // reimplements QWidget
 	virtual void hideEvent(QHideEvent *event) override;
 	virtual void showEvent(QShowEvent *event) override;
 
+#if FLOATING_DOCK_FRAMELESS
+    void checkSnap();
+    void showSnapPreview(const QRect& rect);
+    void hideSnapPreview();
+    void checkSnapPreview(const QPoint& pos, const QSize& size);
+    QWidget* snapPreviewWidget = nullptr;
+#endif
+
 #ifdef Q_OS_MACOS
 	virtual bool event(QEvent *e) override;
     virtual void moveEvent(QMoveEvent *event) override;

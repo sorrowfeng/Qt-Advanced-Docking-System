@@ -35,6 +35,7 @@ set(ads_SRCS
     DockingStateReader.cpp
     DockFocusController.cpp
     ElidingLabel.cpp
+    FloatingDockTitleBar.cpp
     FloatingDockContainer.cpp
     FloatingDragPreview.cpp
     IconProvider.cpp
@@ -61,6 +62,7 @@ set(ads_HEADERS
     DockingStateReader.h
     DockFocusController.h
     ElidingLabel.h
+    FloatingDockTitleBar.h
     FloatingDockContainer.h
     FloatingDragPreview.h
     IconProvider.h
