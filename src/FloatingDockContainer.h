@@ -179,11 +179,7 @@ protected: // reimplements QWidget
 	virtual void showEvent(QShowEvent *event) override;
 
 #if FLOATING_DOCK_FRAMELESS
-    void checkSnap();
-    void showSnapPreview(const QRect& rect);
-    void hideSnapPreview();
-    void checkSnapPreview(const QPoint& pos, const QSize& size);
-    QWidget* snapPreviewWidget = nullptr;
+    void installWindowAgent();
 #endif
 
 #ifdef Q_OS_MACOS
@@ -276,6 +272,11 @@ public:
 	 * This function hides the floating widget instantly and delete it later.
 	 */
 	void finishDropOperation();
+
+	/**
+	 * This function is used to load the style of the title bar
+	 */
+	void loadStylesheet();
 
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     /**

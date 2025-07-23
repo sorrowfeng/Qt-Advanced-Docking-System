@@ -1,21 +1,56 @@
 cmake_minimum_required(VERSION 3.16)
 project(QtAdvancedDockingSystem LANGUAGES CXX VERSION ${VERSION_SHORT})
 include(GNUInstallDirs)
+
+
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
+message(STATUS "Using Qt${QT_VERSION_MAJOR}")
+
 if (${QT_VERSION_MAJOR})
   message(STATUS "Forced to use Qt version ${QT_VERSION_MAJOR}")
-  find_package(QT NAMES Qt${QT_VERSION_MAJOR} COMPONENTS Core REQUIRED)
-else()
-  find_package(QT NAMES Qt6 Qt5 COMPONENTS Core REQUIRED)
 endif()
 
 set(ads_DEP_LIBS Core Gui Widgets)
 if (UNIX AND NOT APPLE AND QT_VERSION_MAJOR STREQUAL "6" AND QT_VERSION_MINOR GREATER 8)
     set(ads_DEP_LIBS Core Gui GuiPrivate Widgets)
 endif()
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS ${ads_DEP_LIBS} REQUIRED)
+
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS 
+    ${ads_DEP_LIBS}
+)
+
 if (UNIX AND NOT APPLE AND QT_VERSION_MAJOR STREQUAL "6" AND QT_VERSION_MINOR GREATER 8)
     include_directories(${Qt${QT_VERSION_MAJOR}Gui_PRIVATE_INCLUDE_DIRS})
 endif()
+
+
+if(FLOATING_DOCK_FRAMELESS)
+    if(NOT QWindowKit_DIR)
+        message(STATUS "option FLOATING_DOCK_FRAMELESS=ON,but QWindowKit_DIR not defined,will set QWindowKit_DIR=${CMAKE_CURRENT_SOURCE_DIR}/lib/cmake/QWindowKit")
+        set(__qwk_dir ${CMAKE_CURRENT_SOURCE_DIR}/lib/cmake/QWindowKit)
+        if(EXISTS ${__qwk_dir})
+            set(QWindowKit_DIR ${__qwk_dir})
+        else()
+            message(WARNING "FLOATING_DOCK_FRAMELESS=ON,but not defined QWindowKit_DIR path")
+        endif()
+        # 再次尝试加载QWindowKit
+        find_package(QWindowKit QUIET)
+        if(NOT QWindowKit_FOUND)
+            set(FLOATING_DOCK_FRAMELESS OFF)
+            message(WARNING "can not find package QWindowKit at ${__qwk_dir},set FLOATING_DOCK_FRAMELESS=OFF")
+        endif()
+    else()
+        message(STATUS "QWindowKit_DIR=${QWindowKit_DIR}")
+        find_package(QWindowKit QUIET)
+        if(NOT QWindowKit_FOUND)
+            set(FLOATING_DOCK_FRAMELESS OFF)
+            message(WARNING "can not find package QWindowKit at ${__qwk_dir},set FLOATING_DOCK_FRAMELESS=OFF")
+        endif()
+    endif()
+
+	add_subdirectory(libWindowBar/libWindowBar)
+endif()
+
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 if(BUILD_STATIC)
@@ -35,7 +70,6 @@ set(ads_SRCS
     DockingStateReader.cpp
     DockFocusController.cpp
     ElidingLabel.cpp
-    FloatingDockTitleBar.cpp
     FloatingDockContainer.cpp
     FloatingDragPreview.cpp
     IconProvider.cpp
@@ -62,7 +96,6 @@ set(ads_HEADERS
     DockingStateReader.h
     DockFocusController.h
     ElidingLabel.h
-    FloatingDockTitleBar.h
     FloatingDockContainer.h
     FloatingDragPreview.h
     IconProvider.h
@@ -96,6 +129,14 @@ target_link_libraries(${library_name} PUBLIC Qt${QT_VERSION_MAJOR}::Core
 
 if(QT_VERSION_MAJOR STREQUAL "6")
     target_link_libraries(${library_name} PRIVATE Qt6::GuiPrivate) #needed for <qpa/qplatformnativeinterface.h>
+endif()
+
+# qwindowkit
+if(FLOATING_DOCK_FRAMELESS)
+    find_package(QWindowKit REQUIRED)
+    target_link_libraries(${library_name} PRIVATE QWindowKit::Widgets)
+    message(STATUS "link ${library_name} PRIVATE QWindowKit::Widgets")    
+    target_link_libraries(${library_name} PRIVATE libWindowBar)
 endif()
 
 if (UNIX AND NOT APPLE)

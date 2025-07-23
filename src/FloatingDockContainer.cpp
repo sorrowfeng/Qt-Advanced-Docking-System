@@ -41,6 +41,9 @@
 #include <QAbstractButton>
 #include <QElapsedTimer>
 #include <QTime>
+#include <QMenu>
+#include <QTimer>
+#include <QLabel>
 
 #include "DockContainerWidget.h"
 #include "DockAreaWidget.h"
@@ -61,7 +64,9 @@
 
 
 #if FLOATING_DOCK_FRAMELESS
-#include "FloatingDockTitleBar.h"
+#include <QWKWidgets/widgetwindowagent.h>
+#include "libWindowBar/libWindowBar/windowbar.h"
+#include "libWindowBar/libWindowBar/windowbutton.h"
 #endif
 
 namespace ads
@@ -389,7 +394,8 @@ struct FloatingDockContainerPrivate
 #endif
 
 #if FLOATING_DOCK_FRAMELESS
-    FloatingDockTitleBar* TitleBar = nullptr;
+    QWK::WidgetWindowAgent* windowAgent;
+    QWK::WindowBar* windowBar;
 #endif
 
 	/**
@@ -443,9 +449,6 @@ struct FloatingDockContainerPrivate
 		}
 #endif
 		_this->setWindowTitle(Text);
-#if FLOATING_DOCK_FRAMELESS
-        TitleBar->setWindowTitle(Text);
-#endif
 	}
 
 	/**
@@ -661,44 +664,28 @@ void FloatingDockContainerPrivate::handleEscapeKey()
 	DockManager->dockAreaOverlay()->hideOverlay();
 }
 
-
-#if FLOATING_DOCK_FRAMELESS
-#include <QPaintEvent>
-#include <QPainter>
-class SnapPreviewWidget : public QWidget
-{
-public:
-    SnapPreviewWidget(QWidget* parent = nullptr)
-        : QWidget(parent,
-                  Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint)
-    {
-        setAttribute(Qt::WA_TranslucentBackground);
-
-        setStyleSheet("background-color: transparent;");
-        setFocusPolicy(Qt::NoFocus);
-    }
-
-protected:
-    void paintEvent(QPaintEvent*) override
-    {
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
-        p.setBrush(Qt::NoBrush);
-        QPen pen(Qt::gray, 2);
-        pen.setDashPattern({4, 4});
-        p.setPen(pen);
-        p.drawRect(rect().adjusted(1, 1, -1, -1));
-    }
-};
-#endif
-
-
-
 //============================================================================
 CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 	tFloatingWidgetBase(DockManager),
 	d(new FloatingDockContainerPrivate(this))
 {
+#if FLOATING_DOCK_FRAMELESS
+    setAttribute(Qt::WA_NativeWindow);               // 必须：生成原生窗口句柄
+    setAttribute(Qt::WA_DontCreateNativeAncestors);  // 推荐：避免 Qt 创建额外
+                                                     // native widget
+    setWindowFlags(windowFlags() | Qt::Window);      // 确保是 top-level window
+
+    // 关键：在 show() 之前先获取 winId()，强制创建原生窗口句柄
+    if (testAttribute(Qt::WA_NativeWindow) && internalWinId() == 0)
+    {
+        winId();  // ⬅️ 强制创建 WId！必须在 setup agent 前调用
+    }
+#else
+    setWindowFlags(Qt::Window | Qt::WindowMaximizeButtonHint
+                   | Qt::WindowCloseButtonHint);
+#endif
+
+
 	d->DockManager = DockManager;
 	d->DockContainer = new CDockContainerWidget(DockManager, this);
 	connect(d->DockContainer, SIGNAL(dockAreasAdded()), this,
@@ -767,34 +754,19 @@ CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 #else
 
 
-#if FLOATING_DOCK_FRAMELESS
-    d->TitleBar = new FloatingDockTitleBar(this);
-    connect(d->TitleBar, &FloatingDockTitleBar::maximizeRequested, this, [=]() {
-        if (isMaximized())
-            showNormal();
-        else
-            showMaximized();
-		});
-    connect(d->TitleBar, &FloatingDockTitleBar::closeRequested, this,
-            &QWidget::close);
-
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
-#else
-    setWindowFlags(Qt::Window | Qt::WindowMaximizeButtonHint
-                   | Qt::WindowCloseButtonHint);
-#endif
-
 	QBoxLayout *l = new QBoxLayout(QBoxLayout::TopToBottom);
 	l->setContentsMargins(0, 0, 0, 0);
 	l->setSpacing(0);
     setLayout(l);
-#if FLOATING_DOCK_FRAMELESS
-    l->addWidget(d->TitleBar);
-#endif
 	l->addWidget(d->DockContainer);
 #endif
 
 	DockManager->registerFloatingWidget(this);
+
+
+#if FLOATING_DOCK_FRAMELESS
+    installWindowAgent();
+#endif
 }
 
 //============================================================================
@@ -931,60 +903,11 @@ bool CFloatingDockContainer::nativeEvent(const QByteArray &eventType, void *mess
 	MSG *msg = static_cast<MSG*>(message);
 	switch (msg->message)
     {
-#if FLOATING_DOCK_FRAMELESS
-		case WM_NCHITTEST:
-		{
-			const int border = 8;
-			QPoint pos = mapFromGlobal(QCursor::pos());
-
-			bool left = pos.x() < border;
-			bool right = pos.x() >= width() - border;
-			bool top = pos.y() < border;
-			bool bottom = pos.y() >= height() - border;
-
-            // 先检测边缘缩放区域
-            if (left || right || top || bottom)
-            {
-                if (left && top) { *result = HTTOPLEFT; return true; }
-                else if (right && top) { *result = HTTOPRIGHT; return true; }
-                else if (left && bottom) { *result = HTBOTTOMLEFT; return true; }
-                else if (right && bottom) { *result = HTBOTTOMRIGHT; return true; }
-                else if (left) { *result = HTLEFT; return true; }
-                else if (right) { *result = HTRIGHT; return true; }
-                else if (top) { *result = HTTOP; return true; }
-                else if (bottom) { *result = HTBOTTOM; return true; }
-            }
-
-			// 如果在标题栏内，则允许拖动
-            if (d->TitleBar && d->TitleBar->dragArea().contains(pos))
-			{
-                *result = HTCAPTION;
-                return true;
-			}
-
-			*result = HTCLIENT;
-			return true;
-		}
-#endif
 		case WM_MOVING:
 		{
 			if (d->isState(DraggingFloatingWidget))
             {
 				d->updateDropOverlays(QCursor::pos());
-
-#if FLOATING_DOCK_FRAMELESS
-                // 获取当前窗口位置
-                RECT* rect = (RECT*)msg->lParam;
-                QPoint newPos(rect->left, rect->top);
-                QSize newSize(rect->right - rect->left, rect->bottom - rect->top);
-
-                // 更新窗口位置（可选，系统已经自动更新）
-                this->move(newPos);
-                this->resize(newSize);
-
-                // 实时检测 Snap 并显示预览框
-                checkSnapPreview(newPos, newSize);
-#endif
 			}
 		}
 		break;
@@ -1027,9 +950,6 @@ bool CFloatingDockContainer::nativeEvent(const QByteArray &eventType, void *mess
                 {
                     d->titleMouseReleaseEvent();
                 }
-				#if FLOATING_DOCK_FRAMELESS
-                checkSnap();
-				#endif
             }
             break;
         }
@@ -1039,93 +959,119 @@ bool CFloatingDockContainer::nativeEvent(const QByteArray &eventType, void *mess
 #endif
 
 
+
 #if FLOATING_DOCK_FRAMELESS
-void CFloatingDockContainer::showSnapPreview(const QRect& rect)
-{
-    if (!snapPreviewWidget)
-    {
-        snapPreviewWidget = new SnapPreviewWidget();
+static inline void emulateLeaveEvent(QWidget* widget) {
+  Q_ASSERT(widget);
+  if (!widget) {
+    return;
+  }
+  QTimer::singleShot(0, widget, [widget]() {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    const QScreen* screen = widget->screen();
+#else
+    const QScreen *screen = widget->windowHandle()->screen();
+#endif
+    const QPoint globalPos = QCursor::pos(screen);
+    if (!QRect(widget->mapToGlobal(QPoint{0, 0}), widget->size())
+             .contains(globalPos)) {
+      QCoreApplication::postEvent(widget, new QEvent(QEvent::Leave));
+      if (widget->testAttribute(Qt::WA_Hover)) {
+        const QPoint localPos = widget->mapFromGlobal(globalPos);
+        const QPoint scenePos = widget->window()->mapFromGlobal(globalPos);
+        static constexpr const auto oldPos = QPoint{};
+        const Qt::KeyboardModifiers modifiers =
+            QGuiApplication::keyboardModifiers();
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 4, 0))
+        const auto event = new QHoverEvent(QEvent::HoverLeave, scenePos,
+                                           globalPos, oldPos, modifiers);
+        Q_UNUSED(localPos);
+#elif (QT_VERSION >= QT_VERSION_CHECK(6, 3, 0))
+        const auto event =  new QHoverEvent(QEvent::HoverLeave, localPos, globalPos, oldPos, modifiers);
+        Q_UNUSED(scenePos);
+#else
+        const auto event =  new QHoverEvent(QEvent::HoverLeave, localPos, oldPos, modifiers);
+        Q_UNUSED(scenePos);
+#endif
+        QCoreApplication::postEvent(widget, event);
+      }
     }
-
-    snapPreviewWidget->setGeometry(rect);
-    snapPreviewWidget->show();
+  });
 }
 
-void CFloatingDockContainer::hideSnapPreview()
-{
-    if (snapPreviewWidget)
-    {
-        snapPreviewWidget->hide();
-    }
-}
+void CFloatingDockContainer::installWindowAgent()
+{	
+  d->windowAgent = new QWK::WidgetWindowAgent(this);
+  d->windowAgent->setup(this);
 
-void CFloatingDockContainer::checkSnapPreview(const QPoint& pos,
-                                              const QSize& size)
-{
-    auto curPos = QCursor::pos();
-    auto screen = QApplication::screenAt(curPos);
-    if (!screen)
-        screen = QApplication::primaryScreen();
-    QRect screenGeometry = screen->availableVirtualGeometry();
+  auto titleLabel = new QLabel();
+  titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+  titleLabel->setObjectName(QStringLiteral("win-title-label"));
 
-    int snapDistance = 10;
+#ifndef Q_OS_MAC
+  auto maxButton = new QWK::WindowButton();
+  maxButton->setCheckable(true);
+  maxButton->setObjectName(QStringLiteral("max-button"));
+  maxButton->setProperty("system-button", true);
+  maxButton->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
-    QRect previewRect;
+  auto closeButton = new QWK::WindowButton();
+  closeButton->setObjectName(QStringLiteral("close-button"));
+  closeButton->setProperty("system-button", true);
+  closeButton->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+#endif
 
-    // 检测顶部贴边（最大化）
-    if (std::abs(curPos.y() - screenGeometry.top()) < snapDistance)
-    {
-        previewRect = screenGeometry;
-    }
-    // 检测左侧贴边（左半屏）
-    else if (std::abs(curPos.x() - screenGeometry.left()) < snapDistance)
-    {
-        previewRect = QRect(screenGeometry.left(), screenGeometry.top(),
-                            screenGeometry.width() / 2, screenGeometry.height());
-    }
-    // 检测右侧贴边（右半屏）
-    else if (std::abs(curPos.x() - screenGeometry.right()) < snapDistance)
-    {
-        previewRect = QRect(screenGeometry.right() - size.width(),
-                            screenGeometry.top(), screenGeometry.width() / 2,
-                            screenGeometry.height());
-    }
-    else
-    {
-        hideSnapPreview();
-        return;
-    }
+  QWK::WindowBar::initResource();
 
-    showSnapPreview(previewRect);
-}
+  d->windowBar = new QWK::WindowBar();
+  d->windowBar->setHostWidget(this);
+#ifndef Q_OS_MAC
+  d->windowBar->setMaxButton(maxButton);
+  d->windowBar->setCloseButton(closeButton);
+#endif
+  d->windowBar->setTitleLabel(titleLabel);
 
-void CFloatingDockContainer::checkSnap()
-{
-    auto curPos = QCursor::pos();
-    auto screen = QApplication::screenAt(curPos);
-    if (!screen)
-        screen = QApplication::primaryScreen();
-    QRect screenGeometry = screen->availableVirtualGeometry();
+  loadStylesheet();
 
-    int snapDistance = 30;
+  // 插入到布局最上方
+  static_cast<QVBoxLayout*>(layout())->insertWidget(0, d->windowBar);
 
-    if (std::abs(curPos.y() - screenGeometry.top()) < snapDistance)
-    {
-        this->showMaximized();
-    }
-    else if (std::abs(curPos.x() - screenGeometry.left()) < snapDistance)
-    {
-        resize(screenGeometry.width() / 2, screenGeometry.height());
-        move(screenGeometry.left(), screenGeometry.top());
-    }
-    else if (std::abs(curPos.x() - screenGeometry.right()) < snapDistance)
-    {
-        resize(screenGeometry.width() / 2, screenGeometry.height());
-        move(screenGeometry.right() - this->width(), screenGeometry.top());
-    }
+  // 告诉 agent：这个 widget 是标题栏，支持拖拽移动
+  d->windowAgent->setTitleBar(d->windowBar);
 
-    // 隐藏预览框
-    hideSnapPreview();
+#ifndef Q_OS_MAC
+  d->windowAgent->setSystemButton(QWK::WindowAgentBase::Maximize, maxButton);
+  d->windowAgent->setSystemButton(QWK::WindowAgentBase::Close, closeButton);
+#endif
+
+#ifdef Q_OS_MAC
+  d->windowAgent->setSystemButtonAreaCallback([](const QSize& size) {
+    static constexpr const int width = 75;
+    return QRect(QPoint(size.width() - width, 0),
+                 QSize(width, size.height()));
+  });
+#endif
+
+#ifndef Q_OS_MAC
+  connect(d->windowBar, &QWK::WindowBar::maximizeRequested, this,
+      [this, maxButton](bool max) {
+        if (max) {
+          showMaximized();
+        } else {
+          showNormal();
+        }
+
+        // It's a Qt issue that if a QAbstractButton::clicked triggers a window's maximization,
+        // the button remains to be hovered until the mouse move. As a result, we need to
+        // manually send leave events to the button.
+        emulateLeaveEvent(maxButton);
+      });
+  connect(d->windowBar, &QWK::WindowBar::closeRequested, this, &QWidget::close);
+#endif
+
+  // 同步标题变化
+  connect(this, &CFloatingDockContainer::windowTitleChanged, titleLabel,
+          &QLabel::setText);
 }
 #endif
 
@@ -1407,6 +1353,19 @@ void CFloatingDockContainer::finishDropOperation()
 		d->DockManager->removeFloatingWidget(this);
 		d->DockManager->removeDockContainer(this->dockContainer());
 	}
+}
+
+void CFloatingDockContainer::loadStylesheet()
+{
+#ifdef FLOATING_DOCK_FRAMELESS
+    QWK::Theme theme = QWK::Theme::Light;
+    if (d->testConfigFlag(CDockManager::FluentUIDarkStyleSheet))
+    {
+        theme = QWK::Theme::Dark;
+    }
+    if (d->windowBar)
+        d->windowBar->setCurrentTheme(theme);
+#endif
 }
 
 //============================================================================

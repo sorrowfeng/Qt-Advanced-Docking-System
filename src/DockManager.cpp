@@ -1529,6 +1529,10 @@ void CDockManager::lockDockWidgetFeaturesGlobally(CDockWidget::DockWidgetFeature
 void CDockManager::loadStyleSheet()
 {
     d->loadStylesheet();
+    for (auto fw : floatingWidgets())
+    {
+        if (fw) fw->loadStylesheet();
+    }
 }
 
 

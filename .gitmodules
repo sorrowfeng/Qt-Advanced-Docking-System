@@ -1,0 +1,3 @@
+[submodule "src/libWindowBar"]
+	path = src/libWindowBar
+	url = https://github.com/sorrowfeng/libWindowBar.git
