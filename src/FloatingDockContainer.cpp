@@ -1067,6 +1067,10 @@ void CFloatingDockContainer::installWindowAgent()
         emulateLeaveEvent(maxButton);
       });
   connect(d->windowBar, &QWK::WindowBar::closeRequested, this, &QWidget::close);
+  //connect(d->windowBar, &QWK::WindowBar::closeRequested, this, [=]() {
+  //    qDebug() << "closeRequested";
+  //    this->close();
+  //});
 #endif
 
   // 同步标题变化
