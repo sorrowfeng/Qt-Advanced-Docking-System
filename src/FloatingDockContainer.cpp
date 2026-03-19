@@ -1361,7 +1361,7 @@ void CFloatingDockContainer::finishDropOperation()
 
 void CFloatingDockContainer::loadStylesheet()
 {
-#ifdef FLOATING_DOCK_FRAMELESS
+#if FLOATING_DOCK_FRAMELESS
     QWK::Theme theme = QWK::Theme::Light;
     if (d->testConfigFlag(CDockManager::FluentUIDarkStyleSheet))
     {
