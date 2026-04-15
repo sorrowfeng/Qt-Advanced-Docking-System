@@ -19,6 +19,8 @@
         <file>images/docked_editor.svg</file>
         <file>images/tab.svg</file>
         <file>res/visual_studio_light.css</file>
+        <file alias="res/fluent_ui_light.css">../src/stylesheets/fluent_ui_light.css</file>
+        <file alias="res/fluent_ui_dark.css">../src/stylesheets/fluent_ui_dark.css</file>
         <file>images/color_lens.svg</file>
         <file>images/ads_icon.svg</file>
         <file>images/ads_logo.svg</file>

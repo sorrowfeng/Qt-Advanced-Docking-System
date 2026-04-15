@@ -6,7 +6,7 @@
  * CDockContainerWidget
  *****************************************************************************/
  ads--CDockContainerWidget {
-	background: #ffffff;
+	background: #f5f5f5;
 }
 
 
@@ -18,7 +18,7 @@ ads--CDockContainerWidget > QSplitter {
 }
 
 ads--CDockSplitter::handle {
-	background-color: #e5e5e5;
+	background-color: #d1d1d1;
 }
 
 
@@ -26,17 +26,17 @@ ads--CDockSplitter::handle {
  * CDockAreaWidget
  *****************************************************************************/
 ads--CDockAreaWidget {
-	background: #ffffff;
+	background: #f5f5f5;
 }
 
 ads--CDockAreaTitleBar {
 	background: transparent;
-	border-bottom: 2px solid #e5e5e5;
+	border-bottom: 2px solid #dbdbdb;
 	padding-bottom: 0px;
 }
 
 ads--CDockAreaWidget[focused="true"] ads--CDockAreaTitleBar {
-	border-bottom: 2px solid #0078d4;
+	border-bottom: 2px solid #0f6cbd;
 }
 
 ads--CTitleBarButton {
@@ -51,12 +51,12 @@ ads--CTitleBarButton {
 	qproperty-iconSize: 16px;
 }
 #tabsMenu {
-	background: #f3f3f3;
-	color: #000000;
+	background: #ebebeb;
+	color: #242424;
 }
 #tabsMenu::item:selected {
-    background: #0078d4;
-    color: #ffffff;
+    background: #0f6cbd;
+    color: #fafafa;
 }
 
 
@@ -69,7 +69,7 @@ ads--CTitleBarButton {
 #detachGroupButton {
 	qproperty-icon: url(:/ads/images/detach-button.svg),
 		url(:/ads/images/detach-button-disabled.svg) disabled;
-	qproperty-iconSize: 16px;	
+	qproperty-iconSize: 16px;
 }
 
 
@@ -77,8 +77,8 @@ ads--CTitleBarButton {
  * CDockWidgetTab
  *****************************************************************************/
 ads--CDockWidgetTab {
-	background: #ffffff;
-	border-color: #e5e5e5;
+	background: #f5f5f5;
+	border-color: #d1d1d1;
 	border-style: solid;
 	border-width: 0 1px 0 0;
 	padding: 0 0px;
@@ -86,15 +86,23 @@ ads--CDockWidgetTab {
 }
 
 ads--CDockWidgetTab[activeTab="true"] {
-	background: qlineargradient(spread : pad, x1 : 0, y1 : 0, x2 : 0, y2 : 0.5, stop : 0 #f3f3f3, stop:1 #e5e5e5);
+	background: #ebebeb;
 }
 
 ads--CDockWidgetTab QLabel {
-	color: #323130;
+	color: #242424;
 }
 
 ads--CDockWidgetTab[activeTab="true"] QLabel {
-	color: #000000;
+	color: #242424;
+}
+
+ads--CDockWidgetTab:hover {
+	background: #f0f0f0;
+}
+
+ads--CDockWidgetTab:hover QLabel {
+	color: #242424;
 }
 
 #tabCloseButton {
@@ -108,17 +116,25 @@ ads--CDockWidgetTab[activeTab="true"] QLabel {
 }
 
 #tabCloseButton:hover {
-	background: rgba(0, 0, 0, 0.08);
+	background: #f5f5f5;
 }
 
 #tabCloseButton:pressed {
-	background: rgba(0, 0, 0, 0.12);
+	background: #e0e0e0;
 }
 
 /* Focus related styling */
 ads--CDockWidgetTab[focused="true"] {
-	background: #0078d4;
-	border-color: #0078d4;
+	background: #0f6cbd;
+	border-color: #0f6cbd;
+}
+
+ads--CDockWidgetTab[focused="true"]:hover {
+	background: #115ea3;
+}
+
+ads--CDockWidgetTab[focused="true"]:pressed {
+	background: #0f548c;
 }
 
 ads--CDockWidgetTab[focused="true"] > #tabCloseButton {
@@ -126,15 +142,15 @@ ads--CDockWidgetTab[focused="true"] > #tabCloseButton {
 }
 
 ads--CDockWidgetTab[focused="true"] > #tabCloseButton:hover {
-	background: rgba(255, 255, 255, 0.2);
+	background: #0f548c;
 }
 
 ads--CDockWidgetTab[focused="true"] > #tabCloseButton:pressed {
-	background: rgba(255, 255, 255, 0.3);
+	background: #0a3d6e;
 }
 
 ads--CDockWidgetTab[focused="true"] QLabel {
-	color: #ffffff;
+	color: #fafafa;
 }
 
 
@@ -142,8 +158,8 @@ ads--CDockWidgetTab[focused="true"] QLabel {
  * CDockWidget
  *****************************************************************************/
 ads--CDockWidget {
-	background: #f3f3f3;
-	border-color: #e5e5e5;
+	background: #ebebeb;
+	border-color: #d1d1d1;
 	border-style: solid;
 	border-width: 1px 0 0 0;
 }
@@ -160,6 +176,7 @@ QScrollArea#dockWidgetScrollArea {
 ads--CAutoHideTab {
 	qproperty-iconSize: 16px 16px;
 	background: none;
+	color: #242424;
 	border: none;
 	padding-left: 2px;
 	padding-right: 0px;
@@ -169,50 +186,50 @@ ads--CAutoHideTab {
 }
 
 ads--CAutoHideTab:hover {
-	color: #0078d4;
+	color: #0f6cbd;
 }
 
 ads--CAutoHideTab[iconOnly="false"][sideBarLocation="0"],
 ads--CAutoHideTab[iconOnly="false"][sideBarLocation="2"]  {
-	border-top: 6px solid #e5e5e5;
+	border-top: 6px solid #d1d1d1;
 }
 
 ads--CAutoHideTab[iconOnly="false"][sideBarLocation="1"],
 ads--CAutoHideTab[iconOnly="false"][sideBarLocation="3"] {
-	border-bottom: 6px solid #e5e5e5;
+	border-bottom: 6px solid #d1d1d1;
 }
 
 ads--CAutoHideTab:hover[iconOnly="false"][sideBarLocation="0"],
 ads--CAutoHideTab:hover[iconOnly="false"][sideBarLocation="2"],
 ads--CAutoHideTab[iconOnly="false"][sideBarLocation="0"][activeTab="true"],
 ads--CAutoHideTab[iconOnly="false"][sideBarLocation="2"][activeTab="true"]  {
-	border-top: 6px solid #0078d4;
+	border-top: 6px solid #0f6cbd;
 }
 
 ads--CAutoHideTab:hover[iconOnly="false"][sideBarLocation="1"],
 ads--CAutoHideTab:hover[iconOnly="false"][sideBarLocation="3"],
 ads--CAutoHideTab[iconOnly="false"][sideBarLocation="1"][activeTab="true"],
 ads--CAutoHideTab[iconOnly="false"][sideBarLocation="3"][activeTab="true"] {
-	border-bottom: 6px solid #0078d4;
+	border-bottom: 6px solid #0f6cbd;
 }
 
 /**
  * Auto hide tabs with icon only
  */
 ads--CAutoHideTab[iconOnly="true"][sideBarLocation="0"] {
-	border-top: 6px solid #e5e5e5;
+	border-top: 6px solid #d1d1d1;
 }
 
 ads--CAutoHideTab[iconOnly="true"][sideBarLocation="1"] {
-	border-left: 6px solid #e5e5e5;
+	border-left: 6px solid #d1d1d1;
 }
 
 ads--CAutoHideTab[iconOnly="true"][sideBarLocation="2"] {
-	border-right: 6px solid #e5e5e5;
+	border-right: 6px solid #d1d1d1;
 }
 
 ads--CAutoHideTab[iconOnly="true"][sideBarLocation="3"] {
-	border-bottom: 6px solid #e5e5e5;
+	border-bottom: 6px solid #d1d1d1;
 }
 
 /**
@@ -220,22 +237,22 @@ ads--CAutoHideTab[iconOnly="true"][sideBarLocation="3"] {
  */
 ads--CAutoHideTab:hover[iconOnly="true"][sideBarLocation="0"],
 ads--CAutoHideTab[iconOnly="true"][sideBarLocation="0"][activeTab="true"] {
-	border-top: 6px solid #0078d4;
+	border-top: 6px solid #0f6cbd;
 }
 
 ads--CAutoHideTab:hover[iconOnly="true"][sideBarLocation="1"],
 ads--CAutoHideTab[iconOnly="true"][sideBarLocation="1"][activeTab="true"] {
-	border-left: 6px solid #0078d4;
+	border-left: 6px solid #0f6cbd;
 }
 
 ads--CAutoHideTab:hover[iconOnly="true"][sideBarLocation="2"],
 ads--CAutoHideTab[iconOnly="true"][sideBarLocation="2"][activeTab="true"] {
-	border-right: 6px solid #0078d4;
+	border-right: 6px solid #0f6cbd;
 }
 
 ads--CAutoHideTab:hover[iconOnly="true"][sideBarLocation="3"],
 ads--CAutoHideTab[iconOnly="true"][sideBarLocation="3"][activeTab="true"] {
-	border-bottom: 6px solid #0078d4;
+	border-bottom: 6px solid #0f6cbd;
 }
 
 
@@ -243,7 +260,7 @@ ads--CAutoHideTab[iconOnly="true"][sideBarLocation="3"][activeTab="true"] {
  * CAutoHideSideBar
  *****************************************************************************/
 ads--CAutoHideSideBar{
-	background: #ffffff;
+	background: #f5f5f5;
 	border: none;
 	qproperty-spacing: 12;
 }
@@ -253,19 +270,19 @@ ads--CAutoHideSideBar{
 }
 
 ads--CAutoHideSideBar[sideBarLocation="0"] {
-	border-bottom: 1px solid #e5e5e5;
+	border-bottom: 1px solid #d1d1d1;
 }
 
 ads--CAutoHideSideBar[sideBarLocation="1"] {
-	border-right: 1px solid #e5e5e5;
+	border-right: 1px solid #d1d1d1;
 }
 
 ads--CAutoHideSideBar[sideBarLocation="2"] {
-	border-left: 1px solid #e5e5e5;
+	border-left: 1px solid #d1d1d1;
 }
 
 ads--CAutoHideSideBar[sideBarLocation="3"] {
-	border-top: 1px solid #e5e5e5;
+	border-top: 1px solid #d1d1d1;
 }
 
 
@@ -273,24 +290,24 @@ ads--CAutoHideSideBar[sideBarLocation="3"] {
  * CAutoHideDockContainer
  *****************************************************************************/
 ads--CAutoHideDockContainer {
-	background: #ffffff;
+	background: #f5f5f5;
 }
 
 ads--CAutoHideDockContainer ads--CDockAreaTitleBar {
-	background: #0078d4;
+	background: #0f6cbd;
 	padding: 0px;
 	border: none;
 }
 
 ads--CAutoHideDockContainer ads--CDockAreaWidget[focused="true"] ads--CDockAreaTitleBar {
-	background: #0078d4;
+	background: #0f6cbd;
 	padding: 0px;
 	border: none;
 }
 
 #autoHideTitleLabel {
 	padding-left: 4px;
-	color: #ffffff;
+	color: #fafafa;
 }
 
 
@@ -310,7 +327,7 @@ ads--CAutoHideDockContainer #dockAreaAutoHideButton {
 
 ads--CAutoHideDockContainer #dockAreaMinimizeButton {
 	qproperty-icon: url(:/ads/images/minimize-button-focused.svg);
-	qproperty-iconSize: 16px;	
+	qproperty-iconSize: 16px;
 }
 
 ads--CAutoHideDockContainer #dockAreaCloseButton{
@@ -318,11 +335,11 @@ ads--CAutoHideDockContainer #dockAreaCloseButton{
 }
 
 ads--CAutoHideDockContainer ads--CTitleBarButton:hover {
-	background: rgba(255, 255, 255, 0.2);
+	background: #115ea3;
 }
 
 ads--CAutoHideDockContainer ads--CTitleBarButton:pressed {
-	background: rgba(255, 255, 255, 0.3);
+	background: #0f548c;
 }
 
 
@@ -330,21 +347,21 @@ ads--CAutoHideDockContainer ads--CTitleBarButton:pressed {
  * CResizeHandle
  *****************************************************************************/
 ads--CResizeHandle {
-	background: #ffffff;
+	background: #f5f5f5;
 }
 
 ads--CAutoHideDockContainer[sideBarLocation="0"] ads--CResizeHandle {
-	border-top: 1px solid #e5e5e5;
+	border-top: 1px solid #d1d1d1;
 }
 
 ads--CAutoHideDockContainer[sideBarLocation="1"] ads--CResizeHandle {
-	border-left: 1px solid #e5e5e5;
+	border-left: 1px solid #d1d1d1;
 }
 
 ads--CAutoHideDockContainer[sideBarLocation="2"] ads--CResizeHandle {
-	border-right: 1px solid #e5e5e5;
+	border-right: 1px solid #d1d1d1;
 }
 
 ads--CAutoHideDockContainer[sideBarLocation="3"] ads--CResizeHandle {
-	border-top: 1px solid #e5e5e5;
+	border-top: 1px solid #d1d1d1;
 }

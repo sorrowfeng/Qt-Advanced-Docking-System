@@ -666,11 +666,34 @@ void MainWindowPrivate::createActions()
 	_this->connect(a, SIGNAL(triggered()), SLOT(toggleDockWidgetWindowTitle()));
 	ui.menuTests->addSeparator();
 
-	a = ui.toolBar->addAction("Apply VS Style");
-	a->setToolTip("Applies a Visual Studio light style (visual_studio_light.css)." );
-	a->setIcon(svgIcon(":/adsdemo/images/color_lens.svg"));
-	QObject::connect(a, &QAction::triggered, _this, &CMainWindow::applyVsStyle);
-	ui.menuTests->addAction(a);
+	auto* StyleComboBox = new QComboBox(_this);
+	StyleComboBox->setToolTip("Select Docking System Style");
+	StyleComboBox->addItem("Default", "");
+	StyleComboBox->addItem("Visual Studio Light", ":/adsdemo/res/visual_studio_light.css");
+	StyleComboBox->addItem("Fluent UI Light", ":/adsdemo/res/fluent_ui_light.css");
+	StyleComboBox->addItem("Fluent UI Dark", ":/adsdemo/res/fluent_ui_dark.css");
+	auto* StyleAction = new QWidgetAction(_this);
+	StyleAction->setDefaultWidget(StyleComboBox);
+	ui.toolBar->addAction(StyleAction);
+
+	QObject::connect(StyleComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), _this, [this, StyleComboBox](int index)
+	{
+		QString FilePath = StyleComboBox->itemData(index).toString();
+		if (FilePath.isEmpty())
+		{
+			DockManager->setStyleSheet("");
+		}
+		else
+		{
+			QFile StyleSheetFile(FilePath);
+			StyleSheetFile.open(QIODevice::ReadOnly);
+			QTextStream StyleSheetStream(&StyleSheetFile);
+			auto Stylesheet = StyleSheetStream.readAll();
+			StyleSheetFile.close();
+			DockManager->setStyleSheet(Stylesheet);
+		}
+	});
+	ui.menuTests->addAction("Apply VS Style", _this, &CMainWindow::applyVsStyle);
 }
 
 
