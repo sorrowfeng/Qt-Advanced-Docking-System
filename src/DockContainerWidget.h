@@ -123,6 +123,9 @@ protected:
 	bool restoreFloatingWidgetToSource(CFloatingDockContainer* FloatingWidget,
 		const FloatingWidgetSourceRestoreInfo& RestoreInfo);
 
+	bool resolveFloatingSourceRestoreTarget(const FloatingWidgetSourceRestoreInfo& RestoreInfo,
+		CDockAreaWidget*& OutTargetArea, DockWidgetArea& OutInsertArea) const;
+
 	/**
 	 * Drop a dock area or a dock widget given in widget parameter.
 	 * If the TargetAreaWidget is a nullptr, then the DropArea indicates

@@ -9,6 +9,7 @@ namespace ads
 {
 class CDockAreaWidget;
 class CDockContainerWidget;
+class CDockSplitter;
 
 struct FloatingWidgetSourceRestoreInfo
 {
@@ -17,6 +18,8 @@ struct FloatingWidgetSourceRestoreInfo
 	bool FloatedEntireDockArea = false;
 	CDockAreaWidget* RestoreNeighborArea = nullptr;
 	DockWidgetArea RestoreInsertArea = InvalidDockWidgetArea;
+	CDockSplitter* RestoreParentSplitter = nullptr;
+	int RestoreSplitterIndex = -1;
 	QList<int> SplitterSizes;
 	int SourceTabIndex = -1;
 };

@@ -388,6 +388,8 @@ struct FloatingDockContainerPrivate
 	bool FloatedEntireDockArea = false;
 	CDockAreaWidget *SourceRestoreNeighborArea = nullptr;
 	DockWidgetArea SourceRestoreInsertArea = InvalidDockWidgetArea;
+	QPointer<CDockSplitter> SourceRestoreSplitter;
+	int SourceRestoreIndex = -1;
 	QList<int> SourceSplitterSizes;
 	int SourceTabIndex = -1;
 	CDockAreaWidget *SingleDockArea = nullptr;
@@ -527,6 +529,8 @@ void FloatingDockContainerPrivate::captureSourceLayout(CDockAreaWidget* DockArea
 	FloatedEntireDockArea = EntireDockArea;
 	SourceRestoreNeighborArea = nullptr;
 	SourceRestoreInsertArea = InvalidDockWidgetArea;
+	SourceRestoreSplitter = nullptr;
+	SourceRestoreIndex = -1;
 	SourceSplitterSizes.clear();
 	SourceTabIndex = -1;
 
@@ -541,8 +545,10 @@ void FloatingDockContainerPrivate::captureSourceLayout(CDockAreaWidget* DockArea
 		return;
 	}
 
+	SourceRestoreSplitter = Splitter;
 	SourceSplitterSizes = Splitter->sizes();
 	const int Index = Splitter->indexOf(DockArea);
+	SourceRestoreIndex = Index;
 	if (Index < 0)
 	{
 		return;
@@ -599,31 +605,43 @@ void FloatingDockContainerPrivate::updateReturnToSourceDropOverlays(const QPoint
 
 	DropContainer = SourceDockContainer;
 
-	if (FloatedEntireDockArea && SourceRestoreNeighborArea
-	 && SourceRestoreNeighborArea->isVisible()
-	 && SourceRestoreInsertArea != InvalidDockWidgetArea)
+	if (FloatedEntireDockArea)
 	{
-		DockAreaOverlay->enableDropPreview(true);
-		DockAreaOverlay->setAllowedAreas(SourceRestoreInsertArea);
-		DockAreaOverlay->showOverlay(SourceRestoreNeighborArea);
-		ContainerOverlay->hideOverlay();
-		return;
+		FloatingWidgetSourceRestoreInfo RestoreInfo = _this->sourceRestoreInfo();
+		CDockAreaWidget* TargetArea = nullptr;
+		DockWidgetArea InsertArea = InvalidDockWidgetArea;
+		if (SourceDockContainer->resolveFloatingSourceRestoreTarget(RestoreInfo,
+				TargetArea, InsertArea) && TargetArea
+		 && InsertArea != CenterDockWidgetArea)
+		{
+			DockAreaOverlay->setAllowedAreas(InsertArea);
+			DockWidgetArea Area = DockAreaOverlay->showOverlay(TargetArea);
+			DockAreaOverlay->enableDropPreview(Area != InvalidDockWidgetArea);
+			ContainerOverlay->hideOverlay();
+			return;
+		}
 	}
 
-	if (!FloatedEntireDockArea && SourceDockArea && SourceDockArea->isVisible()
-	 && SourceDockArea->dockContainer() == SourceDockContainer)
+	if (!FloatedEntireDockArea)
 	{
-		DockAreaOverlay->enableDropPreview(true);
-		DockAreaOverlay->setAllowedAreas(CenterDockWidgetArea);
-		DockAreaOverlay->showOverlay(SourceDockArea);
-		ContainerOverlay->hideOverlay();
-		return;
+		FloatingWidgetSourceRestoreInfo RestoreInfo = _this->sourceRestoreInfo();
+		CDockAreaWidget* TargetArea = nullptr;
+		DockWidgetArea InsertArea = InvalidDockWidgetArea;
+		if (SourceDockContainer->resolveFloatingSourceRestoreTarget(RestoreInfo,
+				TargetArea, InsertArea) && TargetArea)
+		{
+			DockAreaOverlay->setAllowedAreas(CenterDockWidgetArea);
+			DockWidgetArea Area = DockAreaOverlay->showOverlay(TargetArea);
+			DockAreaOverlay->enableDropPreview(Area != InvalidDockWidgetArea);
+			ContainerOverlay->hideOverlay();
+			return;
+		}
 	}
 
 	DockAreaOverlay->hideOverlay();
 	ContainerOverlay->setAllowedAreas(CenterDockWidgetArea);
-	ContainerOverlay->enableDropPreview(true);
-	ContainerOverlay->showOverlay(SourceDockContainer);
+	DockWidgetArea ContainerArea = ContainerOverlay->showOverlay(SourceDockContainer);
+	ContainerOverlay->enableDropPreview(ContainerArea != InvalidDockWidgetArea);
 }
 
 
@@ -638,7 +656,11 @@ void FloatingDockContainerPrivate::titleMouseReleaseEvent()
 
 	if (!DockManager->isDockingOnDragEnabled())
 	{
-		restoreToSourcePosition();
+		if (DockManager->dockAreaOverlay()->visibleDropAreaUnderCursor() != InvalidDockWidgetArea
+		 || DockManager->containerOverlay()->visibleDropAreaUnderCursor() != InvalidDockWidgetArea)
+		{
+			restoreToSourcePosition();
+		}
 		DockManager->containerOverlay()->hideOverlay();
 		DockManager->dockAreaOverlay()->hideOverlay();
 		return;
@@ -1507,6 +1529,8 @@ FloatingWidgetSourceRestoreInfo CFloatingDockContainer::sourceRestoreInfo() cons
 	info.FloatedEntireDockArea = d->FloatedEntireDockArea;
 	info.RestoreNeighborArea = d->SourceRestoreNeighborArea;
 	info.RestoreInsertArea = d->SourceRestoreInsertArea;
+	info.RestoreParentSplitter = d->SourceRestoreSplitter;
+	info.RestoreSplitterIndex = d->SourceRestoreIndex;
 	info.SplitterSizes = d->SourceSplitterSizes;
 	info.SourceTabIndex = d->SourceTabIndex;
 	return info;

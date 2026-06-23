@@ -1786,25 +1786,133 @@ void CDockContainerWidget::dropFloatingWidget(CFloatingDockContainer* FloatingWi
 
 
 //============================================================================
+namespace
+{
+bool isWidgetInContainer(QWidget* Widget, const CDockContainerWidget* Container)
+{
+	for (QWidget* Parent = Widget; Parent; Parent = Parent->parentWidget())
+	{
+		if (Parent == Container)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+
+bool computeInsertTargetFromSplitterIndex(CDockSplitter* Splitter, int RestoreIndex,
+	CDockAreaWidget*& OutTargetArea, DockWidgetArea& OutInsertArea)
+{
+	if (!Splitter || Splitter->count() <= 0)
+	{
+		return false;
+	}
+
+	const int Count = Splitter->count();
+	RestoreIndex = qBound(0, RestoreIndex, Count);
+
+	if (RestoreIndex <= 0)
+	{
+		OutTargetArea = qobject_cast<CDockAreaWidget*>(Splitter->widget(0));
+		OutInsertArea = (Splitter->orientation() == Qt::Horizontal)
+			? LeftDockWidgetArea : TopDockWidgetArea;
+	}
+	else if (RestoreIndex >= Count)
+	{
+		OutTargetArea = qobject_cast<CDockAreaWidget*>(Splitter->widget(Count - 1));
+		OutInsertArea = (Splitter->orientation() == Qt::Horizontal)
+			? RightDockWidgetArea : BottomDockWidgetArea;
+	}
+	else
+	{
+		OutTargetArea = qobject_cast<CDockAreaWidget*>(Splitter->widget(RestoreIndex - 1));
+		OutInsertArea = (Splitter->orientation() == Qt::Horizontal)
+			? RightDockWidgetArea : BottomDockWidgetArea;
+	}
+
+	return OutTargetArea && OutTargetArea->isVisible();
+}
+} // namespace
+
+
+//============================================================================
+bool CDockContainerWidget::resolveFloatingSourceRestoreTarget(
+	const FloatingWidgetSourceRestoreInfo& RestoreInfo,
+	CDockAreaWidget*& OutTargetArea, DockWidgetArea& OutInsertArea) const
+{
+	OutTargetArea = nullptr;
+	OutInsertArea = InvalidDockWidgetArea;
+
+	if (RestoreInfo.SourceContainer != this)
+	{
+		return false;
+	}
+
+	if (!RestoreInfo.FloatedEntireDockArea)
+	{
+		if (RestoreInfo.SourceDockArea && RestoreInfo.SourceDockArea->isVisible()
+		 && RestoreInfo.SourceDockArea->dockContainer() == this)
+		{
+			OutTargetArea = RestoreInfo.SourceDockArea;
+			OutInsertArea = CenterDockWidgetArea;
+			return true;
+		}
+		return false;
+	}
+
+	if (RestoreInfo.RestoreParentSplitter
+	 && isWidgetInContainer(RestoreInfo.RestoreParentSplitter, this)
+	 && computeInsertTargetFromSplitterIndex(RestoreInfo.RestoreParentSplitter,
+		RestoreInfo.RestoreSplitterIndex, OutTargetArea, OutInsertArea))
+	{
+		return true;
+	}
+
+	if (RestoreInfo.RestoreNeighborArea && RestoreInfo.RestoreNeighborArea->isVisible()
+	 && RestoreInfo.RestoreNeighborArea->dockContainer() == this)
+	{
+		CDockSplitter* Splitter = RestoreInfo.RestoreNeighborArea->parentSplitter();
+		if (Splitter && isWidgetInContainer(Splitter, this)
+		 && computeInsertTargetFromSplitterIndex(Splitter, RestoreInfo.RestoreSplitterIndex,
+			OutTargetArea, OutInsertArea))
+		{
+			return true;
+		}
+
+		if (RestoreInfo.RestoreInsertArea != InvalidDockWidgetArea)
+		{
+			OutTargetArea = RestoreInfo.RestoreNeighborArea;
+			OutInsertArea = RestoreInfo.RestoreInsertArea;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+//============================================================================
 bool CDockContainerWidget::restoreFloatingWidgetToSource(CFloatingDockContainer* FloatingWidget,
 	const FloatingWidgetSourceRestoreInfo& info)
 {
 	CDockWidget* SingleDroppedDockWidget = FloatingWidget->topLevelDockWidget();
 	CDockWidget* SingleDockWidget = topLevelDockWidget();
 	bool Dropped = false;
+	CDockAreaWidget* TargetArea = nullptr;
+	DockWidgetArea InsertArea = InvalidDockWidgetArea;
 
 	if (info.FloatedEntireDockArea)
 	{
-		if (info.RestoreNeighborArea && info.RestoreNeighborArea->isVisible()
-		 && info.RestoreInsertArea != InvalidDockWidgetArea)
+		if (resolveFloatingSourceRestoreTarget(info, TargetArea, InsertArea)
+		 && TargetArea && InsertArea != CenterDockWidgetArea)
 		{
-			d->dropIntoSection(FloatingWidget, info.RestoreNeighborArea,
-				info.RestoreInsertArea, -1);
+			d->dropIntoSection(FloatingWidget, TargetArea, InsertArea, -1);
 			Dropped = true;
 
 			if (info.SplitterSizes.size() >= 2)
 			{
-				CDockSplitter* RestoredSplitter = info.RestoreNeighborArea->parentSplitter();
+				CDockSplitter* RestoredSplitter = TargetArea->parentSplitter();
 				if (RestoredSplitter
 				 && RestoredSplitter->count() == info.SplitterSizes.size())
 				{
@@ -1822,10 +1930,10 @@ bool CDockContainerWidget::restoreFloatingWidgetToSource(CFloatingDockContainer*
 			Dropped = !NewDockAreas.isEmpty();
 		}
 	}
-	else if (info.SourceDockArea && info.SourceDockArea->isVisible()
-	 && info.SourceDockArea->dockContainer() == this)
+	else if (resolveFloatingSourceRestoreTarget(info, TargetArea, InsertArea)
+	 && TargetArea && InsertArea == CenterDockWidgetArea)
 	{
-		d->dropIntoCenterOfSection(FloatingWidget, info.SourceDockArea,
+		d->dropIntoCenterOfSection(FloatingWidget, TargetArea,
 			qMax(0, info.SourceTabIndex));
 		Dropped = true;
 	}
