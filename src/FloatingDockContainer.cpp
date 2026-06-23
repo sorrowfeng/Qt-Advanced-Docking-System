@@ -50,6 +50,7 @@
 #include "DockManager.h"
 #include "DockWidget.h"
 #include "DockOverlay.h"
+#include "DockSplitter.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -382,6 +383,13 @@ struct FloatingDockContainerPrivate
 	eDragState DraggingState = DraggingInactive;
 	QPoint DragStartMousePosition;
 	CDockContainerWidget *DropContainer = nullptr;
+	CDockContainerWidget *SourceDockContainer = nullptr;
+	CDockAreaWidget *SourceDockArea = nullptr;
+	bool FloatedEntireDockArea = false;
+	CDockAreaWidget *SourceRestoreNeighborArea = nullptr;
+	DockWidgetArea SourceRestoreInsertArea = InvalidDockWidgetArea;
+	QList<int> SourceSplitterSizes;
+	int SourceTabIndex = -1;
 	CDockAreaWidget *SingleDockArea = nullptr;
 	QPoint DragStartPos;
 	bool Hiding = false;
@@ -405,6 +413,9 @@ struct FloatingDockContainerPrivate
 
 	void titleMouseReleaseEvent();
 	void updateDropOverlays(const QPoint &GlobalPos);
+	void updateReturnToSourceDropOverlays(const QPoint &GlobalPos);
+	void captureSourceLayout(CDockAreaWidget* DockArea, bool EntireDockArea);
+	bool restoreToSourcePosition();
 
 	/**
 	 * Returns true if the given config flag is set
@@ -507,12 +518,129 @@ FloatingDockContainerPrivate::FloatingDockContainerPrivate(
 
 }
 
+
+//============================================================================
+void FloatingDockContainerPrivate::captureSourceLayout(CDockAreaWidget* DockArea, bool EntireDockArea)
+{
+	SourceDockContainer = DockArea->dockContainer();
+	SourceDockArea = DockArea;
+	FloatedEntireDockArea = EntireDockArea;
+	SourceRestoreNeighborArea = nullptr;
+	SourceRestoreInsertArea = InvalidDockWidgetArea;
+	SourceSplitterSizes.clear();
+	SourceTabIndex = -1;
+
+	if (!EntireDockArea)
+	{
+		return;
+	}
+
+	CDockSplitter* Splitter = DockArea->parentSplitter();
+	if (!Splitter)
+	{
+		return;
+	}
+
+	SourceSplitterSizes = Splitter->sizes();
+	const int Index = Splitter->indexOf(DockArea);
+	if (Index < 0)
+	{
+		return;
+	}
+
+	if (Index > 0)
+	{
+		SourceRestoreNeighborArea = qobject_cast<CDockAreaWidget*>(Splitter->widget(Index - 1));
+		SourceRestoreInsertArea = (Splitter->orientation() == Qt::Horizontal)
+			? RightDockWidgetArea : BottomDockWidgetArea;
+	}
+	else if (Splitter->count() > 1)
+	{
+		SourceRestoreNeighborArea = qobject_cast<CDockAreaWidget*>(Splitter->widget(Index + 1));
+		SourceRestoreInsertArea = (Splitter->orientation() == Qt::Horizontal)
+			? LeftDockWidgetArea : TopDockWidgetArea;
+	}
+}
+
+
+//============================================================================
+bool FloatingDockContainerPrivate::restoreToSourcePosition()
+{
+	if (!SourceDockContainer)
+	{
+		return false;
+	}
+
+	return SourceDockContainer->restoreFloatingWidgetToSource(_this, _this->sourceRestoreInfo());
+}
+
+
+//============================================================================
+void FloatingDockContainerPrivate::updateReturnToSourceDropOverlays(const QPoint &GlobalPos)
+{
+	DropContainer = nullptr;
+	auto ContainerOverlay = DockManager->containerOverlay();
+	auto DockAreaOverlay = DockManager->dockAreaOverlay();
+
+	if (!SourceDockContainer || !SourceDockContainer->isVisible())
+	{
+		ContainerOverlay->hideOverlay();
+		DockAreaOverlay->hideOverlay();
+		return;
+	}
+
+	QPoint MappedPos = SourceDockContainer->mapFromGlobal(GlobalPos);
+	if (!SourceDockContainer->rect().contains(MappedPos))
+	{
+		ContainerOverlay->hideOverlay();
+		DockAreaOverlay->hideOverlay();
+		return;
+	}
+
+	DropContainer = SourceDockContainer;
+
+	if (FloatedEntireDockArea && SourceRestoreNeighborArea
+	 && SourceRestoreNeighborArea->isVisible()
+	 && SourceRestoreInsertArea != InvalidDockWidgetArea)
+	{
+		DockAreaOverlay->enableDropPreview(true);
+		DockAreaOverlay->setAllowedAreas(SourceRestoreInsertArea);
+		DockAreaOverlay->showOverlay(SourceRestoreNeighborArea);
+		ContainerOverlay->hideOverlay();
+		return;
+	}
+
+	if (!FloatedEntireDockArea && SourceDockArea && SourceDockArea->isVisible()
+	 && SourceDockArea->dockContainer() == SourceDockContainer)
+	{
+		DockAreaOverlay->enableDropPreview(true);
+		DockAreaOverlay->setAllowedAreas(CenterDockWidgetArea);
+		DockAreaOverlay->showOverlay(SourceDockArea);
+		ContainerOverlay->hideOverlay();
+		return;
+	}
+
+	DockAreaOverlay->hideOverlay();
+	ContainerOverlay->setAllowedAreas(CenterDockWidgetArea);
+	ContainerOverlay->enableDropPreview(true);
+	ContainerOverlay->showOverlay(SourceDockContainer);
+}
+
+
 //============================================================================
 void FloatingDockContainerPrivate::titleMouseReleaseEvent()
 {
 	setState(DraggingInactive);
 	if (!DropContainer)
 	{
+		return;
+	}
+
+	if (!DockManager->isDockingOnDragEnabled())
+	{
+		restoreToSourcePosition();
+		DockManager->containerOverlay()->hideOverlay();
+		DockManager->dockAreaOverlay()->hideOverlay();
 		return;
 	}
 
@@ -559,6 +687,12 @@ void FloatingDockContainerPrivate::updateDropOverlays(const QPoint &GlobalPos)
 {
 	if (!_this->isVisible() || !DockManager)
 	{
+		return;
+	}
+
+	if (!DockManager->isDockingOnDragEnabled())
+	{
+		updateReturnToSourceDropOverlays(GlobalPos);
 		return;
 	}
 
@@ -773,6 +907,7 @@ CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 CFloatingDockContainer::CFloatingDockContainer(CDockAreaWidget *DockArea) :
 	CFloatingDockContainer(DockArea->dockManager())
 {
+	d->captureSourceLayout(DockArea, true);
 	d->DockContainer->addDockArea(DockArea);
 
     auto TopLevelDockWidget = topLevelDockWidget();
@@ -788,6 +923,31 @@ CFloatingDockContainer::CFloatingDockContainer(CDockAreaWidget *DockArea) :
 CFloatingDockContainer::CFloatingDockContainer(CDockWidget *DockWidget) :
 	CFloatingDockContainer(DockWidget->dockManager())
 {
+	CDockAreaWidget* DockArea = DockWidget->dockAreaWidget();
+	if (DockArea)
+	{
+		bool FoundInArea = false;
+		for (int i = 0; i < DockArea->dockWidgetsCount(); ++i)
+		{
+			if (DockArea->dockWidget(i) == DockWidget)
+			{
+				d->SourceTabIndex = i;
+				FoundInArea = true;
+				break;
+			}
+		}
+
+		if (FoundInArea)
+		{
+			d->captureSourceLayout(DockArea, false);
+		}
+		else
+		{
+			d->SourceDockContainer = DockArea->dockContainer();
+			d->SourceDockArea = DockArea;
+			d->FloatedEntireDockArea = false;
+		}
+	}
 	d->DockContainer->addDockWidget(CenterDockWidgetArea, DockWidget);
     auto TopLevelDockWidget = topLevelDockWidget();
     if (TopLevelDockWidget)
@@ -1336,6 +1496,22 @@ QList<CDockWidget*> CFloatingDockContainer::dockWidgets() const
 {
 	return d->DockContainer->dockWidgets();
 }
+
+
+//============================================================================
+FloatingWidgetSourceRestoreInfo CFloatingDockContainer::sourceRestoreInfo() const
+{
+	FloatingWidgetSourceRestoreInfo info;
+	info.SourceContainer = d->SourceDockContainer;
+	info.SourceDockArea = d->SourceDockArea;
+	info.FloatedEntireDockArea = d->FloatedEntireDockArea;
+	info.RestoreNeighborArea = d->SourceRestoreNeighborArea;
+	info.RestoreInsertArea = d->SourceRestoreInsertArea;
+	info.SplitterSizes = d->SourceSplitterSizes;
+	info.SourceTabIndex = d->SourceTabIndex;
+	return info;
+}
+
 
 //============================================================================
 void CFloatingDockContainer::finishDropOperation()

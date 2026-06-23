@@ -127,6 +127,7 @@ struct DockManagerPrivate
 	QSize ToolBarIconSizeDocked = QSize(16, 16);
 	QSize ToolBarIconSizeFloating = QSize(24, 24);
 	CDockWidget::DockWidgetFeatures LockedDockWidgetFeatures;
+	bool DockingOnDragEnabled = true;
 	QSharedPointer<ads::CDockComponentsFactory> ComponentFactory {ads::CDockComponentsFactory::factory()};
 
 	/**
@@ -206,11 +207,7 @@ void DockManagerPrivate::loadStylesheet()
 	QString Result;
 	QString FileName = ":ads/stylesheets/";
     QString BaseName = "default";
-    if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
-    {
-        BaseName = "focus_highlighting";
-	}
-    else if (CDockManager::testConfigFlag(CDockManager::FluentUILightStyleSheet))
+    if (CDockManager::testConfigFlag(CDockManager::FluentUILightStyleSheet))
     {
         BaseName = "fluent_ui_light";
     }
@@ -218,6 +215,10 @@ void DockManagerPrivate::loadStylesheet()
     {
         BaseName = "fluent_ui_dark";
     }
+    else if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
+    {
+        BaseName = "focus_highlighting";
+	}
     FileName += BaseName;
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     FileName += "_linux";
@@ -1540,6 +1541,25 @@ void CDockManager::loadStyleSheet()
 CDockWidget::DockWidgetFeatures CDockManager::globallyLockedDockWidgetFeatures() const
 {
 	return d->LockedDockWidgetFeatures;
+}
+
+
+//===========================================================================
+void CDockManager::setDockingOnDragEnabled(bool On)
+{
+	d->DockingOnDragEnabled = On;
+	if (!On)
+	{
+		d->ContainerOverlay->hideOverlay();
+		d->DockAreaOverlay->hideOverlay();
+	}
+}
+
+
+//===========================================================================
+bool CDockManager::isDockingOnDragEnabled() const
+{
+	return d->DockingOnDragEnabled;
 }
 
 

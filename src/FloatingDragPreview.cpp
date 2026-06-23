@@ -123,6 +123,14 @@ void FloatingDragPreviewPrivate::updateDropOverlays(const QPoint &GlobalPos)
 		return;
 	}
 
+	if (!DockManager->isDockingOnDragEnabled())
+	{
+		DropContainer = nullptr;
+		DockManager->containerOverlay()->hideOverlay();
+		DockManager->dockAreaOverlay()->hideOverlay();
+		return;
+	}
+
 	auto Containers = DockManager->dockContainers();
 	CDockContainerWidget *TopContainer = nullptr;
 	for (auto ContainerWidget : Containers)
@@ -378,6 +386,18 @@ void CFloatingDragPreview::startFloating(const QPoint &DragStartMousePos,
 void CFloatingDragPreview::finishDragging()
 {
 	ADS_PRINT("CFloatingDragPreview::finishDragging");
+
+	if (!d->DockManager->isDockingOnDragEnabled())
+	{
+		if (d->isContentFloatable())
+		{
+			d->createFloatingWidget();
+		}
+		this->close();
+		d->DockManager->containerOverlay()->hideOverlay();
+		d->DockManager->dockAreaOverlay()->hideOverlay();
+		return;
+	}
 
 	auto DockDropArea = d->DockManager->dockAreaOverlay()->visibleDropAreaUnderCursor();
 	auto ContainerDropArea = d->DockManager->containerOverlay()->visibleDropAreaUnderCursor();

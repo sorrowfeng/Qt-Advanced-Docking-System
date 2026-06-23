@@ -35,6 +35,7 @@
 #include "ads_globals.h"
 #include "AutoHideTab.h"
 #include "DockWidget.h"
+#include "FloatingWidgetRestoreInfo.h"
 
 QT_FORWARD_DECLARE_CLASS(QXmlStreamWriter)
 
@@ -118,6 +119,9 @@ protected:
 	 * Drop floating widget into the container
 	 */
 	void dropFloatingWidget(CFloatingDockContainer* FloatingWidget, const QPoint& TargetPos);
+
+	bool restoreFloatingWidgetToSource(CFloatingDockContainer* FloatingWidget,
+		const FloatingWidgetSourceRestoreInfo& RestoreInfo);
 
 	/**
 	 * Drop a dock area or a dock widget given in widget parameter.

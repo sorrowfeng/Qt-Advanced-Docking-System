@@ -754,6 +754,19 @@ public:
     void lockDockWidgetFeaturesGlobally(CDockWidget::DockWidgetFeatures Features = CDockWidget::GloballyLockableFeatures);
 
 	/**
+	 * Enable or disable docking widgets onto arbitrary dock areas while dragging.
+	 * When disabled, dragging still allows floating (if DockWidgetFloatable is set)
+	 * and floating windows can be dragged back to their original dock area.
+	 * Default is enabled.
+	 */
+	void setDockingOnDragEnabled(bool On);
+
+	/**
+	 * Returns true if docking on drag is enabled
+	 */
+	bool isDockingOnDragEnabled() const;
+
+	/**
 	 * Update the stylesheet settings through this interface
 	 * 
      * \code

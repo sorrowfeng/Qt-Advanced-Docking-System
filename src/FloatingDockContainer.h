@@ -30,6 +30,7 @@
 //                                   INCLUDES
 //============================================================================
 #include "ads_globals.h"
+#include "FloatingWidgetRestoreInfo.h"
 
 #include <QRubberBand>
 
@@ -267,6 +268,8 @@ public:
      * function of the internal container widget.
      */
     QList<CDockWidget*> dockWidgets() const;
+
+	FloatingWidgetSourceRestoreInfo sourceRestoreInfo() const;
 
 	/**
 	 * This function hides the floating widget instantly and delete it later.

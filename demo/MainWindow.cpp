@@ -417,6 +417,8 @@ struct MainWindowPrivate
 	ads::CDockWidget *createQQuickWidget()
 	{
 		QQuickWidget *widget = new QQuickWidget();
+		widget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+		widget->setSource(QUrl(QStringLiteral("qrc:/adsdemo/qml/QuickPlaceholder.qml")));
 		ads::CDockWidget *dockWidget = DockManager->createDockWidget("Quick");
 		dockWidget->setWidget(widget);
 		return dockWidget;
@@ -668,32 +670,44 @@ void MainWindowPrivate::createActions()
 
 	auto* StyleComboBox = new QComboBox(_this);
 	StyleComboBox->setToolTip("Select Docking System Style");
-	StyleComboBox->addItem("Default", "");
-	StyleComboBox->addItem("Visual Studio Light", ":/adsdemo/res/visual_studio_light.css");
-	StyleComboBox->addItem("Fluent UI Light", ":/adsdemo/res/fluent_ui_light.css");
-	StyleComboBox->addItem("Fluent UI Dark", ":/adsdemo/res/fluent_ui_dark.css");
+	StyleComboBox->addItem("Default", 0);
+	StyleComboBox->addItem("Fluent UI Light", 1);
+	StyleComboBox->addItem("Fluent UI Dark", 2);
 	auto* StyleAction = new QWidgetAction(_this);
 	StyleAction->setDefaultWidget(StyleComboBox);
 	ui.toolBar->addAction(StyleAction);
 
 	QObject::connect(StyleComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), _this, [this, StyleComboBox](int index)
 	{
-		QString FilePath = StyleComboBox->itemData(index).toString();
-		if (FilePath.isEmpty())
+		int mode = StyleComboBox->itemData(index).toInt();
+		if (mode == 0)
 		{
+			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUILightStyleSheet, false);
+			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUIDarkStyleSheet, false);
 			DockManager->setStyleSheet("");
+			DockManager->loadStyleSheet();
 		}
-		else
+		else if (mode == 1)
 		{
-			QFile StyleSheetFile(FilePath);
-			StyleSheetFile.open(QIODevice::ReadOnly);
-			QTextStream StyleSheetStream(&StyleSheetFile);
-			auto Stylesheet = StyleSheetStream.readAll();
-			StyleSheetFile.close();
-			DockManager->setStyleSheet(Stylesheet);
+			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUILightStyleSheet, true);
+			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUIDarkStyleSheet, false);
+			DockManager->loadStyleSheet();
+		}
+		else if (mode == 2)
+		{
+			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUILightStyleSheet, false);
+			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUIDarkStyleSheet, true);
+			DockManager->loadStyleSheet();
 		}
 	});
 	ui.menuTests->addAction("Apply VS Style", _this, &CMainWindow::applyVsStyle);
+	auto* DockingOnDragAction = ui.menuTests->addAction("Docking On Drag");
+	DockingOnDragAction->setCheckable(true);
+	DockingOnDragAction->setChecked(true);
+	QObject::connect(DockingOnDragAction, &QAction::toggled, _this, [this](bool Enabled)
+	{
+		DockManager->setDockingOnDragEnabled(Enabled);
+	});
 }
 
 

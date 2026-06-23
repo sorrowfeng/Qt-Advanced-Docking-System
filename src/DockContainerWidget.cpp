@@ -1786,6 +1786,75 @@ void CDockContainerWidget::dropFloatingWidget(CFloatingDockContainer* FloatingWi
 
 
 //============================================================================
+bool CDockContainerWidget::restoreFloatingWidgetToSource(CFloatingDockContainer* FloatingWidget,
+	const FloatingWidgetSourceRestoreInfo& info)
+{
+	CDockWidget* SingleDroppedDockWidget = FloatingWidget->topLevelDockWidget();
+	CDockWidget* SingleDockWidget = topLevelDockWidget();
+	bool Dropped = false;
+
+	if (info.FloatedEntireDockArea)
+	{
+		if (info.RestoreNeighborArea && info.RestoreNeighborArea->isVisible()
+		 && info.RestoreInsertArea != InvalidDockWidgetArea)
+		{
+			d->dropIntoSection(FloatingWidget, info.RestoreNeighborArea,
+				info.RestoreInsertArea, -1);
+			Dropped = true;
+
+			if (info.SplitterSizes.size() >= 2)
+			{
+				CDockSplitter* RestoredSplitter = info.RestoreNeighborArea->parentSplitter();
+				if (RestoredSplitter
+				 && RestoredSplitter->count() == info.SplitterSizes.size())
+				{
+					RestoredSplitter->setSizes(info.SplitterSizes);
+				}
+			}
+		}
+		else if (visibleDockAreaCount() == 0)
+		{
+			const auto NewDockAreas = FloatingWidget->dockContainer()->openedDockAreas();
+			for (auto DockArea : NewDockAreas)
+			{
+				addDockArea(DockArea, CenterDockWidgetArea);
+			}
+			Dropped = !NewDockAreas.isEmpty();
+		}
+	}
+	else if (info.SourceDockArea && info.SourceDockArea->isVisible()
+	 && info.SourceDockArea->dockContainer() == this)
+	{
+		d->dropIntoCenterOfSection(FloatingWidget, info.SourceDockArea,
+			qMax(0, info.SourceTabIndex));
+		Dropped = true;
+	}
+
+	if (!Dropped)
+	{
+		return false;
+	}
+
+	for (auto AutohideWidget : FloatingWidget->dockContainer()->autoHideWidgets())
+	{
+		auto SideBar = autoHideSideBar(AutohideWidget->sideBarLocation());
+		SideBar->addAutoHideWidget(AutohideWidget);
+	}
+
+	FloatingWidget->finishDropOperation();
+	CDockWidget::emitTopLevelEventForWidget(SingleDroppedDockWidget, false);
+	CDockWidget::emitTopLevelEventForWidget(SingleDockWidget, false);
+	window()->activateWindow();
+	if (SingleDroppedDockWidget)
+	{
+		d->DockManager->notifyWidgetOrAreaRelocation(SingleDroppedDockWidget);
+	}
+	d->DockManager->notifyFloatingWidgetDrop(FloatingWidget);
+	return true;
+}
+
+
+//============================================================================
 void CDockContainerWidget::dropWidget(QWidget* Widget, DockWidgetArea DropArea, CDockAreaWidget* TargetAreaWidget,
 	int TabIndex)
 {
