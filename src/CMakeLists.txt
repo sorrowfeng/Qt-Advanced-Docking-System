@@ -97,6 +97,7 @@ set(ads_HEADERS
     DockFocusController.h
     ElidingLabel.h
     FloatingDockContainer.h
+    FloatingWidgetRestoreInfo.h
     FloatingDragPreview.h
     IconProvider.h
     DockComponentsFactory.h
