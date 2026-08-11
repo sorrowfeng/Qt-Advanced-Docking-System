@@ -25,7 +25,13 @@ endif()
 
 
 if(FLOATING_DOCK_FRAMELESS)
-    if(NOT QWindowKit_DIR)
+    if(TARGET QWKWidgets)
+        # QWindowKit 已由父项目以 add_subdirectory 方式构建,
+        # 直接使用构建树内 target,无需 find_package
+        if(NOT TARGET QWindowKit::Widgets)
+            add_library(QWindowKit::Widgets ALIAS QWKWidgets)
+        endif()
+    elseif(NOT QWindowKit_DIR)
         message(STATUS "option FLOATING_DOCK_FRAMELESS=ON,but QWindowKit_DIR not defined,will set QWindowKit_DIR=${CMAKE_CURRENT_SOURCE_DIR}/lib/cmake/QWindowKit")
         set(__qwk_dir ${CMAKE_CURRENT_SOURCE_DIR}/lib/cmake/QWindowKit)
         if(EXISTS ${__qwk_dir})
@@ -134,7 +140,9 @@ endif()
 
 # qwindowkit
 if(FLOATING_DOCK_FRAMELESS)
-    find_package(QWindowKit REQUIRED)
+    if(NOT TARGET QWindowKit::Widgets)
+        find_package(QWindowKit REQUIRED)
+    endif()
     target_link_libraries(${library_name} PRIVATE QWindowKit::Widgets)
     message(STATUS "link ${library_name} PRIVATE QWindowKit::Widgets")    
     target_link_libraries(${library_name} PRIVATE libWindowBar)
