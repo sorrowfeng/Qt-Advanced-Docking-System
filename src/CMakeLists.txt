@@ -205,7 +205,18 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${library_name}ConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${library_name}
 )
 
+# 兼容 <qtadvanceddocking-qt6/X.h> 包含方式:头文件在 src/ 下为平铺布局,
+# 在构建目录生成一层带包名的 include 目录(优先符号链接,无权限时退化为复制)
+set(ADS_COMPAT_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/compat_include")
+if(NOT EXISTS "${ADS_COMPAT_INCLUDE_DIR}/${library_name}")
+    file(MAKE_DIRECTORY "${ADS_COMPAT_INCLUDE_DIR}")
+    file(CREATE_LINK "${CMAKE_CURRENT_SOURCE_DIR}"
+         "${ADS_COMPAT_INCLUDE_DIR}/${library_name}"
+         COPY_ON_ERROR SYMBOLIC)
+endif()
+
 target_include_directories(${library_name} PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    $<BUILD_INTERFACE:${ADS_COMPAT_INCLUDE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
