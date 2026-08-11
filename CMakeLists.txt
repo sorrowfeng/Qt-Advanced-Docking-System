@@ -33,6 +33,15 @@ option(BUILD_STATIC "Build the static library" OFF)
 option(BUILD_EXAMPLES "Build the examples" ON)
 option(FLOATING_DOCK_FRAMELESS "CFloatingDockContainer is frameless" OFF)
 
+# 作为子项目(add_subdirectory)构建时默认关闭安装规则,
+# 避免与父项目的 install/export 相互干扰
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    set(ADS_STANDALONE_DEFAULT ON)
+else()
+    set(ADS_STANDALONE_DEFAULT OFF)
+endif()
+option(ADS_ENABLE_INSTALL "Install Qt Advanced Docking System" ${ADS_STANDALONE_DEFAULT})
+
 add_compile_definitions(FLOATING_DOCK_FRAMELESS=$<BOOL:${FLOATING_DOCK_FRAMELESS}>)
 
 

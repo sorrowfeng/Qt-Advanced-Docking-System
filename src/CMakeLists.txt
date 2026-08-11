@@ -177,41 +177,43 @@ elseif(QT_VERSION_MAJOR STREQUAL "6")
         CXX_STANDARD_REQUIRED ON)
 endif()
 
-include(CMakePackageConfigHelpers)
-write_basic_package_version_file(
-    "${library_name}ConfigVersion.cmake"
-    VERSION ${VERSION_SHORT}
-    COMPATIBILITY SameMajorVersion
-)
-install(FILES ${ads_HEADERS}
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${library_name}
-    COMPONENT headers
-)
-install(FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../gnu-lgpl-v2.1.md"
-    DESTINATION share/ads/license
-    COMPONENT license
-)
-install(TARGETS ${library_name}
-    EXPORT adsTargets
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${library_name}
-)
+if(ADS_ENABLE_INSTALL)
+    include(CMakePackageConfigHelpers)
+    write_basic_package_version_file(
+        "${library_name}ConfigVersion.cmake"
+        VERSION ${VERSION_SHORT}
+        COMPATIBILITY SameMajorVersion
+    )
+    install(FILES ${ads_HEADERS}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${library_name}
+        COMPONENT headers
+    )
+    install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../gnu-lgpl-v2.1.md"
+        DESTINATION share/ads/license
+        COMPONENT license
+    )
+    install(TARGETS ${library_name}
+        EXPORT adsTargets
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${library_name}
+    )
 
-install(EXPORT adsTargets
-    FILE adsTargets.cmake
-    NAMESPACE ads::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${library_name}
-)
-install(FILES qtadvanceddockingConfig.cmake RENAME ${library_name}Config.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${library_name}
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${library_name}ConfigVersion.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${library_name}
-)
+    install(EXPORT adsTargets
+        FILE adsTargets.cmake
+        NAMESPACE ads::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${library_name}
+    )
+    install(FILES qtadvanceddockingConfig.cmake RENAME ${library_name}Config.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${library_name}
+    )
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${library_name}ConfigVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${library_name}
+    )
+endif()
 
 # 兼容 <qtadvanceddocking-qt6/X.h> 包含方式:头文件在 src/ 下为平铺布局,
 # 在构建目录生成一层带包名的 include 目录(优先符号链接,无权限时退化为复制)
