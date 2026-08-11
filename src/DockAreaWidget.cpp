@@ -38,6 +38,7 @@
 #include <QPushButton>
 #include <QDebug>
 #include <QMenu>
+#include <QTimer>
 #include <QXmlStreamWriter>
 #include <QList>
 
@@ -59,6 +60,33 @@ namespace ads
 {
 static const char* const INDEX_PROPERTY = "index";
 static const char* const ACTION_PROPERTY = "action";
+static const char* const CONTENT_CONNECTED_LEFT_PROPERTY = "contentConnectedLeft";
+static const char* const CONTENT_CONNECTED_RIGHT_PROPERTY = "contentConnectedRight";
+static const char* const SKIP_LEFT_PADDING_PROPERTY = "skipLeftPadding";
+static const char* const SKIP_TOP_PADDING_PROPERTY = "skipTopPadding";
+static const char* const SKIP_RIGHT_PADDING_PROPERTY = "skipRightPadding";
+static const char* const SKIP_BOTTOM_PADDING_PROPERTY = "skipBottomPadding";
+
+static bool isModernBlueTheme()
+{
+	return CDockManager::styleSheetTheme() == CDockManager::ModernBlueStyleSheetTheme;
+}
+
+static void repolishContentConnectionWidget(QWidget* Widget)
+{
+	if (!Widget)
+	{
+		return;
+	}
+	internal::repolishStyle(Widget, internal::RepolishIgnoreChildren);
+	for (auto ContentWidget : Widget->findChildren<QWidget*>())
+	{
+		if (ContentWidget->property("dockWidgetContent").toBool())
+		{
+			internal::repolishStyle(ContentWidget, internal::RepolishIgnoreChildren);
+		}
+	}
+}
 
 /**
  * Check, if auto hide is enabled
@@ -260,6 +288,7 @@ struct DockAreaWidgetPrivate
 	CDockManager*		DockManager		= nullptr;
 	CAutoHideDockContainer* AutoHideDockContainer = nullptr;
 	bool UpdateTitleBarButtons = false;
+	bool ModernBluePropertiesUpdatePending = false;
 	DockWidgetAreas		AllowedAreas	= DefaultAllowedAreas;
 	QSize MinSizeHint;
 	CDockAreaWidget::DockAreaFlags Flags{CDockAreaWidget::DefaultFlags};
@@ -345,6 +374,156 @@ struct DockAreaWidgetPrivate
 			MinSizeHint.setHeight(qMax(MinSizeHint.height(), Widget->minimumSizeHint().height()));
 			MinSizeHint.setWidth(qMax(MinSizeHint.width(), Widget->minimumSizeHint().width()));
 		}
+	}
+
+	void updateContentTabConnectionProperties()
+	{
+		if (!isModernBlueTheme())
+		{
+			return;
+		}
+
+		auto CurrentWidget = ContentsLayout->currentWidget();
+		if (!CurrentWidget)
+		{
+			return;
+		}
+
+		bool ConnectedLeft = false;
+		bool ConnectedRight = false;
+		auto CurrentTab = tabBar()->currentTab();
+		const bool HasVisibleTab = TitleBar
+			&& TitleBar->isVisibleTo(_this)
+			&& tabBar()->isVisibleTo(TitleBar)
+			&& CurrentTab
+			&& CurrentTab->isVisibleTo(tabBar());
+		if (HasVisibleTab)
+		{
+			const QRect ContentRect = _this->contentAreaGeometry();
+			const QRect TabRect(CurrentTab->mapTo(_this, QPoint(0, 0)), CurrentTab->size());
+			const int Tolerance = 1;
+			ConnectedLeft = TabRect.left() <= ContentRect.left() + Tolerance;
+			ConnectedRight = TabRect.right() >= ContentRect.right() - Tolerance;
+		}
+
+		for (int i = 0; i < ContentsLayout->count(); ++i)
+		{
+			auto Widget = ContentsLayout->widget(i);
+			const bool IsCurrentWidget = (Widget == CurrentWidget);
+			const bool WidgetConnectedLeft = IsCurrentWidget && ConnectedLeft;
+			const bool WidgetConnectedRight = IsCurrentWidget && ConnectedRight;
+			const bool LeftChanged = Widget->property(CONTENT_CONNECTED_LEFT_PROPERTY).toBool() != WidgetConnectedLeft;
+			const bool RightChanged = Widget->property(CONTENT_CONNECTED_RIGHT_PROPERTY).toBool() != WidgetConnectedRight;
+			if (!LeftChanged && !RightChanged)
+			{
+				continue;
+			}
+
+			Widget->setProperty(CONTENT_CONNECTED_LEFT_PROPERTY, WidgetConnectedLeft);
+			Widget->setProperty(CONTENT_CONNECTED_RIGHT_PROPERTY, WidgetConnectedRight);
+			for (auto ContentWidget : Widget->findChildren<QWidget*>())
+			{
+				if (ContentWidget->property("dockWidgetContent").toBool())
+				{
+					ContentWidget->setProperty(CONTENT_CONNECTED_LEFT_PROPERTY, WidgetConnectedLeft);
+					ContentWidget->setProperty(CONTENT_CONNECTED_RIGHT_PROPERTY, WidgetConnectedRight);
+				}
+			}
+			repolishContentConnectionWidget(Widget);
+		}
+	}
+
+	void updateSidePaddingProperties()
+	{
+		if (!isModernBlueTheme())
+		{
+			return;
+		}
+
+		bool SkipLeft = false;
+		bool SkipTop = false;
+		bool SkipRight = false;
+		bool SkipBottom = false;
+		QWidget* Child = _this;
+		for (QWidget* Parent = Child->parentWidget(); Parent; Child = Parent, Parent = Parent->parentWidget())
+		{
+			auto Splitter = qobject_cast<CDockSplitter*>(Parent);
+			if (!Splitter)
+			{
+				continue;
+			}
+
+			const int Index = Splitter->indexOf(Child);
+			if (Index < 0 || Splitter->orientation() != Qt::Horizontal)
+			{
+				if (Index >= 0 && Splitter->orientation() == Qt::Vertical)
+				{
+					SkipTop = SkipTop || (Index > 0);
+					SkipBottom = SkipBottom || (Index < Splitter->count() - 1);
+				}
+				continue;
+			}
+
+			SkipLeft = SkipLeft || (Index > 0);
+			SkipRight = SkipRight || (Index < Splitter->count() - 1);
+		}
+
+		const bool Changed = _this->property(SKIP_LEFT_PADDING_PROPERTY).toBool() != SkipLeft
+			|| _this->property(SKIP_TOP_PADDING_PROPERTY).toBool() != SkipTop
+			|| _this->property(SKIP_RIGHT_PADDING_PROPERTY).toBool() != SkipRight
+			|| _this->property(SKIP_BOTTOM_PADDING_PROPERTY).toBool() != SkipBottom;
+		const QMargins NewMargins(SkipLeft ? 0 : 8, SkipTop ? 0 : 8, SkipRight ? 0 : 8, 0);
+		const bool MarginsChanged = Layout->contentsMargins() != NewMargins;
+		if (!Changed && !MarginsChanged)
+		{
+			return;
+		}
+
+		_this->setProperty(SKIP_LEFT_PADDING_PROPERTY, SkipLeft);
+		_this->setProperty(SKIP_TOP_PADDING_PROPERTY, SkipTop);
+		_this->setProperty(SKIP_RIGHT_PADDING_PROPERTY, SkipRight);
+		_this->setProperty(SKIP_BOTTOM_PADDING_PROPERTY, SkipBottom);
+		if (MarginsChanged)
+		{
+			Layout->setContentsMargins(NewMargins);
+			Layout->invalidate();
+			_this->updateGeometry();
+		}
+		if (Changed)
+		{
+			internal::repolishStyle(_this, internal::RepolishDirectChildren);
+		}
+	}
+
+	void resetModernBlueLayout()
+	{
+		if (Layout->contentsMargins() != QMargins(0, 0, 0, 0))
+		{
+			Layout->setContentsMargins(0, 0, 0, 0);
+			Layout->invalidate();
+			_this->updateGeometry();
+		}
+	}
+
+	void scheduleModernBluePropertiesUpdate()
+	{
+		if (ModernBluePropertiesUpdatePending)
+		{
+			return;
+		}
+
+		ModernBluePropertiesUpdatePending = true;
+		QTimer::singleShot(0, _this, [this]()
+		{
+			ModernBluePropertiesUpdatePending = false;
+			if (!isModernBlueTheme())
+			{
+				resetModernBlueLayout();
+				return;
+			}
+			updateContentTabConnectionProperties();
+			updateSidePaddingProperties();
+		});
 	}
 };
 
@@ -548,6 +727,10 @@ void CDockAreaWidget::insertDockWidget(int index, CDockWidget* DockWidget,
 	}
 	d->updateTitleBarButtonStates();
     updateTitleBarVisibility();
+	if (isModernBlueTheme())
+	{
+		d->scheduleModernBluePropertiesUpdate();
+	}
 }
 
 
@@ -726,6 +909,10 @@ void CDockAreaWidget::setCurrentIndex(int index)
     TabBar->setCurrentIndex(index);
 	d->ContentsLayout->setCurrentIndex(index);
 	d->ContentsLayout->currentWidget()->show();
+	if (isModernBlueTheme())
+	{
+		d->scheduleModernBluePropertiesUpdate();
+	}
 	Q_EMIT currentChanged(index);
 }
 
@@ -1493,20 +1680,37 @@ void CDockAreaWidget::setFloating()
 }
 
 
-#ifdef Q_OS_WIN
 //============================================================================
 bool CDockAreaWidget::event(QEvent *e)
 {
+#ifdef Q_OS_WIN
     switch (e->type())
     {
     case QEvent::PlatformSurface: return true;
     default:
         break;
     }
+#endif
+
+	if (e->type() == QEvent::StyleChange
+	 || (isModernBlueTheme() && (e->type() == QEvent::LayoutRequest || e->type() == QEvent::Show)))
+	{
+		d->scheduleModernBluePropertiesUpdate();
+	}
 
     return Super::event(e);
 }
-#endif
+
+
+//============================================================================
+void CDockAreaWidget::resizeEvent(QResizeEvent *event)
+{
+	Super::resizeEvent(event);
+	if (isModernBlueTheme())
+	{
+		d->scheduleModernBluePropertiesUpdate();
+	}
+}
 
 } // namespace ads
 

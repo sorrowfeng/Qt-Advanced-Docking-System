@@ -97,9 +97,26 @@ enum eStateFileVersion
 
 static CDockManager::ConfigFlags StaticConfigFlags = CDockManager::DefaultNonOpaqueConfig;
 static CDockManager::AutoHideFlags StaticAutoHideConfigFlags; // auto hide feature is disabled by default
+static CDockManager::eStyleSheetTheme StaticStyleSheetTheme = CDockManager::DefaultStyleSheetTheme;
 static QVector<QVariant> StaticConfigParams(CDockManager::ConfigParamCount);
 
 static QString FloatingContainersTitle;
+
+static void syncStyleSheetThemeFromConfigFlags()
+{
+	if (StaticConfigFlags.testFlag(CDockManager::FluentUILightStyleSheet))
+	{
+		StaticStyleSheetTheme = CDockManager::FluentUILightStyleSheetTheme;
+	}
+	else if (StaticConfigFlags.testFlag(CDockManager::FluentUIDarkStyleSheet))
+	{
+		StaticStyleSheetTheme = CDockManager::FluentUIDarkStyleSheetTheme;
+	}
+	else
+	{
+		StaticStyleSheetTheme = CDockManager::DefaultStyleSheetTheme;
+	}
+}
 
 /**
  * Private data class of CDockManager class (pimpl)
@@ -207,17 +224,24 @@ void DockManagerPrivate::loadStylesheet()
 	QString Result;
 	QString FileName = ":ads/stylesheets/";
     QString BaseName = "default";
-    if (CDockManager::testConfigFlag(CDockManager::FluentUILightStyleSheet))
-    {
-        BaseName = "fluent_ui_light";
-    }
-    else if (CDockManager::testConfigFlag(CDockManager::FluentUIDarkStyleSheet))
-    {
-        BaseName = "fluent_ui_dark";
-    }
-    else if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
-    {
-        BaseName = "focus_highlighting";
+	switch (CDockManager::styleSheetTheme())
+	{
+	case CDockManager::FluentUILightStyleSheetTheme:
+		BaseName = "fluent_ui_light";
+		break;
+	case CDockManager::FluentUIDarkStyleSheetTheme:
+		BaseName = "fluent_ui_dark";
+		break;
+	case CDockManager::ModernBlueStyleSheetTheme:
+		BaseName = "modern_blue";
+		break;
+	case CDockManager::DefaultStyleSheetTheme:
+	default:
+		if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
+		{
+			BaseName = "focus_highlighting";
+		}
+		break;
 	}
     FileName += BaseName;
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
@@ -1274,11 +1298,17 @@ CDockManager::AutoHideFlags CDockManager::autoHideConfigFlags()
 	return StaticAutoHideConfigFlags;
 }
 
+CDockManager::eStyleSheetTheme CDockManager::styleSheetTheme()
+{
+	return StaticStyleSheetTheme;
+}
+
 
 //===========================================================================
 void CDockManager::setConfigFlags(const ConfigFlags Flags)
 {
 	StaticConfigFlags = Flags;
+	syncStyleSheetThemeFromConfigFlags();
 }
 
 
@@ -1288,11 +1318,37 @@ void CDockManager::setAutoHideConfigFlags(const AutoHideFlags Flags)
 	StaticAutoHideConfigFlags = Flags;
 }
 
+void CDockManager::setStyleSheetTheme(eStyleSheetTheme Theme)
+{
+	StaticStyleSheetTheme = Theme;
+	internal::setFlag(StaticConfigFlags, FluentUILightStyleSheet,
+		Theme == FluentUILightStyleSheetTheme);
+	internal::setFlag(StaticConfigFlags, FluentUIDarkStyleSheet,
+		Theme == FluentUIDarkStyleSheetTheme);
+}
+
 
 //===========================================================================
 void CDockManager::setConfigFlag(eConfigFlag Flag, bool On)
 {
 	internal::setFlag(StaticConfigFlags, Flag, On);
+	if (Flag == FluentUILightStyleSheet || Flag == FluentUIDarkStyleSheet)
+	{
+		if (On && Flag == FluentUILightStyleSheet)
+		{
+			internal::setFlag(StaticConfigFlags, FluentUIDarkStyleSheet, false);
+			StaticStyleSheetTheme = FluentUILightStyleSheetTheme;
+		}
+		else if (On && Flag == FluentUIDarkStyleSheet)
+		{
+			internal::setFlag(StaticConfigFlags, FluentUILightStyleSheet, false);
+			StaticStyleSheetTheme = FluentUIDarkStyleSheetTheme;
+		}
+		else
+		{
+			syncStyleSheetThemeFromConfigFlags();
+		}
+	}
 }
 
 

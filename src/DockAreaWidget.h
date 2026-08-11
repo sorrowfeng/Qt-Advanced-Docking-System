@@ -99,15 +99,18 @@ private Q_SLOTS:
 
 protected:
 
-#ifdef Q_OS_WIN
 	/**
-	 * Reimplements QWidget::event to handle QEvent::PlatformSurface
-	 * This is here to fix issue #294 Tab refresh problem with a QGLWidget
-	 * that exists since Qt version 5.12.7. So this function is here to
-	 * work around a Qt issue.
+	 * Reimplements QWidget::event to update stylesheet properties after layout
+	 * related changes. On Windows this also keeps the QEvent::PlatformSurface
+	 * workaround for issue #294.
 	 */
 	virtual bool event(QEvent *event) override;
-#endif
+
+	/**
+	 * Reimplements QWidget::resizeEvent to update stylesheet properties that
+	 * depend on tab and content geometry.
+	 */
+	virtual void resizeEvent(QResizeEvent *event) override;
 
 	/**
 	 * Inserts a dock widget into dock area.

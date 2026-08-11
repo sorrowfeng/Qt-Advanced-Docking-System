@@ -673,6 +673,7 @@ void MainWindowPrivate::createActions()
 	StyleComboBox->addItem("Default", 0);
 	StyleComboBox->addItem("Fluent UI Light", 1);
 	StyleComboBox->addItem("Fluent UI Dark", 2);
+	StyleComboBox->addItem("Modern Blue", 3);
 	auto* StyleAction = new QWidgetAction(_this);
 	StyleAction->setDefaultWidget(StyleComboBox);
 	ui.toolBar->addAction(StyleAction);
@@ -682,21 +683,23 @@ void MainWindowPrivate::createActions()
 		int mode = StyleComboBox->itemData(index).toInt();
 		if (mode == 0)
 		{
-			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUILightStyleSheet, false);
-			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUIDarkStyleSheet, false);
+			ads::CDockManager::setStyleSheetTheme(ads::CDockManager::DefaultStyleSheetTheme);
 			DockManager->setStyleSheet("");
 			DockManager->loadStyleSheet();
 		}
 		else if (mode == 1)
 		{
-			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUILightStyleSheet, true);
-			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUIDarkStyleSheet, false);
+			ads::CDockManager::setStyleSheetTheme(ads::CDockManager::FluentUILightStyleSheetTheme);
 			DockManager->loadStyleSheet();
 		}
 		else if (mode == 2)
 		{
-			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUILightStyleSheet, false);
-			ads::CDockManager::setConfigFlag(ads::CDockManager::FluentUIDarkStyleSheet, true);
+			ads::CDockManager::setStyleSheetTheme(ads::CDockManager::FluentUIDarkStyleSheetTheme);
+			DockManager->loadStyleSheet();
+		}
+		else if (mode == 3)
+		{
+			ads::CDockManager::setStyleSheetTheme(ads::CDockManager::ModernBlueStyleSheetTheme);
 			DockManager->loadStyleSheet();
 		}
 	});

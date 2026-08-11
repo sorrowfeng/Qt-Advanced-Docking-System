@@ -244,6 +244,19 @@ public:
 
 
 	/**
+	 * Built-in stylesheet themes. Use setStyleSheetTheme() before calling
+	 * loadStyleSheet() to switch between bundled docking system styles.
+	 */
+	enum eStyleSheetTheme
+	{
+		DefaultStyleSheetTheme,       //!< Default platform dependent style sheet
+		FluentUILightStyleSheetTheme, //!< Fluent UI light style sheet
+		FluentUIDarkStyleSheetTheme,  //!< Fluent UI dark style sheet
+		ModernBlueStyleSheetTheme     //!< Modern light blue style sheet
+	};
+
+
+	/**
 	 * These global configuration flags configure some dock manager auto hide
 	 * settings
 	 * Set the dock manager flags, before you create the dock manager instance.
@@ -338,6 +351,11 @@ public:
 	static AutoHideFlags autoHideConfigFlags();
 
 	/**
+	 * This function returns the selected built-in stylesheet theme.
+	 */
+	static eStyleSheetTheme styleSheetTheme();
+
+	/**
 	 * Sets the global configuration flags for the whole docking system.
 	 * Call this function before you create the dock manager and before
 	 * your create the first dock widget.
@@ -350,6 +368,12 @@ public:
 	 * your create the first dock widget.
 	 */
 	static void setAutoHideConfigFlags(const AutoHideFlags Flags);
+
+	/**
+	 * Selects a built-in stylesheet theme.
+	 * Call loadStyleSheet() on existing dock managers after changing this value.
+	 */
+	static void setStyleSheetTheme(eStyleSheetTheme Theme);
 
 	/**
 	 * Set a certain config flag.
@@ -769,10 +793,12 @@ public:
 	/**
 	 * Update the stylesheet settings through this interface
 	 * 
-     * \code
+	 * \code
 	 * CDockManager::setConfigFlag(CDockManager::FluentUILightStyleSheet, true);
      * DockManager->loadStyleSheet();
      * \code
+	 *
+	 * For new code prefer CDockManager::setStyleSheetTheme().
      */
 	void loadStyleSheet();
 

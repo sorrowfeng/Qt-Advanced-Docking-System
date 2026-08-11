@@ -372,6 +372,12 @@ public:
     void updateSplitterHandles(QSplitter* splitter);
 
     /**
+     * Updates dock area padding properties according to splitter adjacency.
+     */
+    void updateDockAreaSidePaddingProperties(QWidget* widget, bool SkipLeft, bool SkipTop,
+        bool SkipRight, bool SkipBottom);
+
+    /**
      * If no central widget exists, the widgets resize with the container.
      * If a central widget exists, the widgets surrounding the central widget
      * do not resize its height or width.
@@ -812,6 +818,8 @@ void DockContainerWidgetPrivate::moveToAutoHideSideBar(QWidget* Widget, DockWidg
 //============================================================================
 void DockContainerWidgetPrivate::updateSplitterHandles( QSplitter* splitter )
 {
+	updateDockAreaSidePaddingProperties(RootSplitter, false, false, false, false);
+
 	if (!DockManager->centralWidget() || !splitter)
 	{
 		return;
@@ -821,6 +829,52 @@ void DockContainerWidgetPrivate::updateSplitterHandles( QSplitter* splitter )
     {
 		splitter->setStretchFactor(i, widgetResizesWithContainer(splitter->widget(i)) ? 1 : 0);
     }
+}
+
+
+//============================================================================
+void DockContainerWidgetPrivate::updateDockAreaSidePaddingProperties(QWidget* widget, bool SkipLeft, bool SkipTop,
+	bool SkipRight, bool SkipBottom)
+{
+	if (!widget || CDockManager::styleSheetTheme() != CDockManager::ModernBlueStyleSheetTheme)
+	{
+		return;
+	}
+
+	auto Area = qobject_cast<CDockAreaWidget*>(widget);
+	if (Area)
+	{
+		const bool Changed = Area->property("skipLeftPadding").toBool() != SkipLeft
+			|| Area->property("skipTopPadding").toBool() != SkipTop
+			|| Area->property("skipRightPadding").toBool() != SkipRight
+			|| Area->property("skipBottomPadding").toBool() != SkipBottom;
+		Area->setProperty("skipLeftPadding", SkipLeft);
+		Area->setProperty("skipTopPadding", SkipTop);
+		Area->setProperty("skipRightPadding", SkipRight);
+		Area->setProperty("skipBottomPadding", SkipBottom);
+		if (Changed)
+		{
+			internal::repolishStyle(Area, internal::RepolishDirectChildren);
+		}
+		return;
+	}
+
+	auto Splitter = qobject_cast<CDockSplitter*>(widget);
+	if (!Splitter)
+	{
+		return;
+	}
+
+	const bool IsHorizontal = (Splitter->orientation() == Qt::Horizontal);
+	for (int i = 0; i < Splitter->count(); ++i)
+	{
+		const bool ChildSkipLeft = SkipLeft || (IsHorizontal && i > 0);
+		const bool ChildSkipTop = SkipTop || (!IsHorizontal && i > 0);
+		const bool ChildSkipRight = SkipRight || (IsHorizontal && i < Splitter->count() - 1);
+		const bool ChildSkipBottom = SkipBottom || (!IsHorizontal && i < Splitter->count() - 1);
+		updateDockAreaSidePaddingProperties(Splitter->widget(i), ChildSkipLeft, ChildSkipTop,
+			ChildSkipRight, ChildSkipBottom);
+	}
 }
 
 

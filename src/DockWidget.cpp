@@ -41,10 +41,13 @@
 #include <QSplitter>
 #include <QStack>
 #include <QScrollArea>
+#include <QAbstractScrollArea>
 #include <QTextStream>
 #include <QPointer>
 #include <QEvent>
 #include <QDebug>
+#include <QPainter>
+#include <QPainterPath>
 #include <QToolBar>
 #include <QXmlStreamWriter>
 #include <QWindow>
@@ -64,6 +67,67 @@
 
 namespace ads
 {
+namespace
+{
+class ModernBlueCornerOverlay : public QWidget
+{
+public:
+	enum eCorner
+	{
+		TopLeft,
+		TopRight
+	};
+
+	ModernBlueCornerOverlay(eCorner Corner, QWidget* parent) :
+		QWidget(parent),
+		m_Corner(Corner)
+	{
+		setAttribute(Qt::WA_NoSystemBackground);
+		setAttribute(Qt::WA_TranslucentBackground);
+		setAttribute(Qt::WA_TransparentForMouseEvents);
+		setAttribute(Qt::WA_StaticContents);
+		setAutoFillBackground(false);
+	}
+
+protected:
+	void paintEvent(QPaintEvent*) override
+	{
+		static const QColor ModernBlueTabBarColor("#D4E6FF");
+		const qreal Radius = qMin<qreal>(10.0, qMin(width(), height()));
+		if (Radius <= 0.0)
+		{
+			return;
+		}
+
+		QPainterPath OutsideCorner;
+		if (m_Corner == TopLeft)
+		{
+			OutsideCorner.moveTo(0, 0);
+			OutsideCorner.lineTo(Radius, 0);
+			OutsideCorner.arcTo(QRectF(0, 0, Radius * 2.0, Radius * 2.0), 90, 90);
+			OutsideCorner.closeSubpath();
+		}
+		else
+		{
+			OutsideCorner.moveTo(0, 0);
+			OutsideCorner.lineTo(Radius, 0);
+			OutsideCorner.lineTo(Radius, Radius);
+			OutsideCorner.arcTo(QRectF(-Radius, 0, Radius * 2.0, Radius * 2.0), 0, 90);
+			OutsideCorner.closeSubpath();
+		}
+
+		QPainter Painter(this);
+		Painter.setRenderHint(QPainter::Antialiasing, true);
+		Painter.setPen(Qt::NoPen);
+		Painter.setBrush(ModernBlueTabBarColor);
+		Painter.drawPath(OutsideCorner);
+	}
+
+private:
+	eCorner m_Corner;
+};
+}
+
 /**
  * Private data class of CDockWidget class (pimpl)
  */
@@ -85,6 +149,11 @@ struct DockWidgetPrivate
 	QAction* ToggleViewAction = nullptr;
 	bool Closed = false;
 	QScrollArea* ScrollArea = nullptr;
+	ModernBlueCornerOverlay* TopLeftCornerOverlay = nullptr;
+	ModernBlueCornerOverlay* TopRightCornerOverlay = nullptr;
+	QRect ModernBlueClipRect;
+	bool ModernBlueClipConnectedLeft = false;
+	bool ModernBlueClipConnectedRight = false;
 	QToolBar* ToolBar = nullptr;
 	Qt::ToolButtonStyle ToolBarStyleDocked = Qt::ToolButtonIconOnly;
 	Qt::ToolButtonStyle ToolBarStyleFloating = Qt::ToolButtonTextUnderIcon;
@@ -153,6 +222,12 @@ struct DockWidgetPrivate
 	 * Use the dock manager toolbar style and icon size for the different states
 	 */
 	void setToolBarStyleFromDockManager();
+
+	/**
+	 * Clips modern blue dock widget content so child widgets cannot paint over
+	 * the rounded top corners.
+	 */
+	void updateModernBlueClipMask();
 };
 // struct DockWidgetPrivate
 
@@ -320,6 +395,8 @@ void DockWidgetPrivate::setupScrollArea()
 	ScrollArea = new QScrollArea(_this);
 	ScrollArea->setObjectName("dockWidgetScrollArea");
 	ScrollArea->setWidgetResizable(true);
+	ScrollArea->viewport()->setProperty("dockWidgetContent", true);
+	ScrollArea->viewport()->setProperty("dockWidgetContentViewport", true);
 	Layout->addWidget(ScrollArea);
 }
 
@@ -361,6 +438,101 @@ void DockWidgetPrivate::setToolBarStyleFromDockManager()
 	State = CDockWidget::StateFloating;
 	_this->setToolBarIconSize(DockManager->dockWidgetToolBarIconSize(State), State);
 	_this->setToolBarStyle(DockManager->dockWidgetToolBarStyle(State), State);
+}
+
+
+//============================================================================
+void DockWidgetPrivate::updateModernBlueClipMask()
+{
+	auto EnsureOverlay = [this](ModernBlueCornerOverlay*& Overlay, ModernBlueCornerOverlay::eCorner Corner)
+	{
+		if (!Overlay)
+		{
+			Overlay = new ModernBlueCornerOverlay(Corner, _this);
+		}
+		return Overlay;
+	};
+
+	auto HideOverlay = [](ModernBlueCornerOverlay* Overlay)
+	{
+		if (Overlay)
+		{
+			Overlay->hide();
+		}
+	};
+
+	auto ClearMask = [](QWidget* Widget)
+	{
+		if (Widget)
+		{
+			Widget->clearMask();
+		}
+	};
+
+	if (CDockManager::styleSheetTheme() != CDockManager::ModernBlueStyleSheetTheme)
+	{
+		ModernBlueClipRect = QRect();
+		ClearMask(_this);
+		ClearMask(ScrollArea);
+		ClearMask(ScrollArea ? ScrollArea->viewport() : nullptr);
+		ClearMask(Widget);
+		auto ContentScrollArea = qobject_cast<QAbstractScrollArea*>(Widget);
+		ClearMask(ContentScrollArea ? ContentScrollArea->viewport() : nullptr);
+		HideOverlay(TopLeftCornerOverlay);
+		HideOverlay(TopRightCornerOverlay);
+		return;
+	}
+
+	const bool ConnectedLeft = _this->property("contentConnectedLeft").toBool();
+	const bool ConnectedRight = _this->property("contentConnectedRight").toBool();
+	const QRect Rect = _this->rect();
+	if (Rect.isEmpty())
+	{
+		ModernBlueClipRect = QRect();
+		HideOverlay(TopLeftCornerOverlay);
+		HideOverlay(TopRightCornerOverlay);
+		return;
+	}
+
+	const int Radius = qMin(10, qMin(Rect.width(), Rect.height()));
+	const bool TopLeftVisible = !ConnectedLeft;
+	const bool TopRightVisible = !ConnectedRight;
+	if (!ModernBlueClipRect.isEmpty()
+	 && Rect == ModernBlueClipRect
+	 && ConnectedLeft == ModernBlueClipConnectedLeft
+	 && ConnectedRight == ModernBlueClipConnectedRight)
+	{
+		return;
+	}
+
+	ModernBlueClipRect = Rect;
+	ModernBlueClipConnectedLeft = ConnectedLeft;
+	ModernBlueClipConnectedRight = ConnectedRight;
+
+	ClearMask(_this);
+	ClearMask(ScrollArea);
+	ClearMask(ScrollArea ? ScrollArea->viewport() : nullptr);
+	ClearMask(Widget);
+	auto ContentScrollArea = qobject_cast<QAbstractScrollArea*>(Widget);
+	ClearMask(ContentScrollArea ? ContentScrollArea->viewport() : nullptr);
+
+	auto TopLeftOverlay = EnsureOverlay(TopLeftCornerOverlay, ModernBlueCornerOverlay::TopLeft);
+	auto TopRightOverlay = EnsureOverlay(TopRightCornerOverlay, ModernBlueCornerOverlay::TopRight);
+	TopLeftOverlay->setGeometry(0, 0, Radius, Radius);
+	TopRightOverlay->setGeometry(Rect.width() - Radius, 0, Radius, Radius);
+
+	TopLeftOverlay->setVisible(TopLeftVisible);
+	TopRightOverlay->setVisible(TopRightVisible);
+	if (TopLeftVisible)
+	{
+		TopLeftOverlay->raise();
+		TopLeftOverlay->update();
+	}
+	if (TopRightVisible)
+	{
+		TopRightOverlay->raise();
+		TopRightOverlay->update();
+	}
 }
 
 
@@ -447,6 +619,7 @@ void CDockWidget::setWidget(QWidget* widget, eInsertMode InsertMode)
 		if (ScrollAreaWidget && ScrollAreaWidget->viewport())
 		{
 			ScrollAreaWidget->viewport()->setProperty("dockWidgetContent", true);
+			ScrollAreaWidget->viewport()->setProperty("dockWidgetContentViewport", true);
 		}
 	}
 	else
@@ -854,11 +1027,25 @@ bool CDockWidget::event(QEvent *e)
 {
 	switch (e->type())
 	{
+	case QEvent::DynamicPropertyChange:
+	case QEvent::Resize:
+	case QEvent::StyleChange:
+		if (CDockManager::styleSheetTheme() == CDockManager::ModernBlueStyleSheetTheme
+		 || e->type() == QEvent::StyleChange)
+		{
+			d->updateModernBlueClipMask();
+		}
+		break;
+
 	case QEvent::Hide:
 		Q_EMIT visibilityChanged(false);
 		break;
 
 	case QEvent::Show:
+		if (CDockManager::styleSheetTheme() == CDockManager::ModernBlueStyleSheetTheme)
+		{
+			d->updateModernBlueClipMask();
+		}
 		Q_EMIT visibilityChanged(geometry().right() >= 0 && geometry().bottom() >= 0);
 		break;
 

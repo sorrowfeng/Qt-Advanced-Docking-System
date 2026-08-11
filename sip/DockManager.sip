@@ -181,6 +181,13 @@ public:
 		NonOpaqueWithWindowFrame,
 	};
     typedef QFlags<ads::CDockManager::eConfigFlag> ConfigFlags;
+	enum eStyleSheetTheme
+	{
+		DefaultStyleSheetTheme,
+		FluentUILightStyleSheetTheme,
+		FluentUIDarkStyleSheetTheme,
+		ModernBlueStyleSheetTheme,
+	};
 	enum eAutoHideFlag
 	{
 		AutoHideFeatureEnabled,
@@ -202,6 +209,8 @@ public:
 	static void setConfigFlags(const ads::CDockManager::ConfigFlags Flags);
 	static void setConfigFlag(ads::CDockManager::eConfigFlag Flag, bool On = true);
 	static bool testConfigFlag(eConfigFlag Flag);
+	static ads::CDockManager::eStyleSheetTheme styleSheetTheme();
+	static void setStyleSheetTheme(ads::CDockManager::eStyleSheetTheme Theme);
 	static ads::CDockManager::AutoHideFlags autoHideConfigFlags();
 	static void setAutoHideConfigFlags(const ads::CDockManager::AutoHideFlags Flags);
 	static void setAutoHideConfigFlag(ads::CDockManager::eAutoHideFlag Flag, bool On = true);

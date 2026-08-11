@@ -40,6 +40,8 @@
 #include <QApplication>
 #include <QSplitter>
 #include <QDebug>
+#include <QPainter>
+#include <QPainterPath>
 #include <QToolButton>
 #include <QPushButton>
 #include <QMenu>
@@ -369,6 +371,42 @@ CDockWidgetTab::~CDockWidgetTab()
 {
     ADS_PRINT("~CDockWidgetTab()");
 	delete d;
+}
+
+
+//============================================================================
+void CDockWidgetTab::paintEvent(QPaintEvent* ev)
+{
+	if (CDockManager::styleSheetTheme() != CDockManager::ModernBlueStyleSheetTheme
+	 || (!isActiveTab() && !property("focused").toBool()))
+	{
+		Super::paintEvent(ev);
+		return;
+	}
+
+	static const QColor ModernBlueActiveTabColor("#F6F6F6");
+	const QRectF Rect(0, 0, width(), height());
+	const qreal Radius = qMin<qreal>(10.0, qMin(Rect.width() / 2.0, Rect.height()));
+	if (Rect.isEmpty() || Radius <= 0.0)
+	{
+		return;
+	}
+
+	QPainterPath TabBackground;
+	TabBackground.moveTo(Rect.left(), Rect.bottom());
+	TabBackground.lineTo(Rect.left(), Rect.top() + Radius);
+	TabBackground.quadTo(Rect.left(), Rect.top(), Rect.left() + Radius, Rect.top());
+	TabBackground.lineTo(Rect.right() - Radius, Rect.top());
+	TabBackground.quadTo(Rect.right(), Rect.top(), Rect.right(), Rect.top() + Radius);
+	TabBackground.lineTo(Rect.right(), Rect.bottom());
+	TabBackground.closeSubpath();
+
+	QPainter Painter(this);
+	Painter.setClipRect(ev->rect());
+	Painter.setRenderHint(QPainter::Antialiasing, true);
+	Painter.setPen(Qt::NoPen);
+	Painter.setBrush(ModernBlueActiveTabColor);
+	Painter.drawPath(TabBackground);
 }
 
 
@@ -791,6 +829,10 @@ bool CDockWidgetTab::event(QEvent *e)
 	if (e->type() == QEvent::StyleChange)
 	{
 		d->updateIcon();
+	}
+	else if (e->type() == QEvent::DynamicPropertyChange)
+	{
+		update();
 	}
 	return Super::event(e);
 }

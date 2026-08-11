@@ -34,7 +34,7 @@ CMainWindow::CMainWindow(QWidget* parent)
     CDockManager::setConfigFlag(CDockManager::XmlCompressionEnabled, false);
     CDockManager::setConfigFlag(CDockManager::PerspectivesWithOutCentralWidget,
                                 true);
-    CDockManager::setConfigFlag(CDockManager::FluentUIDarkStyleSheet, true);
+    CDockManager::setStyleSheetTheme(CDockManager::ModernBlueStyleSheetTheme);
     CDockManager::setAutoHideConfigFlags({CDockManager::DefaultAutoHideConfig});
 
     DockManager = new CDockManager(this);
@@ -64,6 +64,7 @@ CMainWindow::CMainWindow(QWidget* parent)
     TableDockWidget->setMinimumSize(200, 150);
     auto TableArea = DockManager->addDockWidget(
         DockWidgetArea::LeftDockWidgetArea, TableDockWidget);
+    auto* FirstTableDockWidget = TableDockWidget;
     ui->menuView->addAction(TableDockWidget->toggleViewAction());
 
     table = new QTableWidget();
@@ -79,8 +80,9 @@ CMainWindow::CMainWindow(QWidget* parent)
         CDockWidget::MinimumSizeHintFromDockWidget);
     TableDockWidget->resize(250, 150);
     TableDockWidget->setMinimumSize(200, 150);
-    DockManager->addDockWidget(DockWidgetArea::BottomDockWidgetArea,
+    DockManager->addDockWidget(DockWidgetArea::CenterDockWidgetArea,
                                TableDockWidget, TableArea);
+    FirstTableDockWidget->setAsCurrentTab();
     ui->menuView->addAction(TableDockWidget->toggleViewAction());
 
     table = new QTableWidget();
@@ -138,15 +140,18 @@ void CMainWindow::createPerspectiveUi()
 
 void CMainWindow::changeTheme()
 {
-    if (CDockManager::testConfigFlag(CDockManager::FluentUILightStyleSheet))
+    const auto Theme = CDockManager::styleSheetTheme();
+    if (Theme == CDockManager::ModernBlueStyleSheetTheme)
     {
-        CDockManager::setConfigFlag(CDockManager::FluentUIDarkStyleSheet, true);
-        CDockManager::setConfigFlag(CDockManager::FluentUILightStyleSheet, false);
+        CDockManager::setStyleSheetTheme(CDockManager::FluentUILightStyleSheetTheme);
+    }
+    else if (Theme == CDockManager::FluentUILightStyleSheetTheme)
+    {
+        CDockManager::setStyleSheetTheme(CDockManager::FluentUIDarkStyleSheetTheme);
     }
     else
     {
-        CDockManager::setConfigFlag(CDockManager::FluentUIDarkStyleSheet, false);
-        CDockManager::setConfigFlag(CDockManager::FluentUILightStyleSheet, true);
+        CDockManager::setStyleSheetTheme(CDockManager::ModernBlueStyleSheetTheme);
     }
     DockManager->loadStyleSheet();
 }
