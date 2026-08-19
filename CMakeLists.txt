@@ -33,7 +33,6 @@ if(QtADS_IS_TOP_LEVEL)
     if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.26.0)
         cmake_policy(SET CMP0143 NEW)
     endif()
-    add_compile_options($<${MSVC}:/MP>)
 endif()
 
 add_subdirectory(src)
