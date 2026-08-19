@@ -447,13 +447,14 @@ void CAutoHideSideBar::wheelEvent(QWheelEvent* e)
 {
 	QPoint AngleDelta = e->angleDelta();
 
-	// completely ignore the effects if the alt key is being held
-	// if alt is held on a vertical scroll area, cancel the applied horizontal scroll by forcing a vertical scroll
-	// if alt is held on a horizontal scroll area, cancel the applied vertical scroll by forcing a horizontal scroll
-	if (!d->isHorizontal() && (e->modifiers() & Qt::KeyboardModifier::AltModifier) ||
-		 d->isHorizontal() && (~e->modifiers() & Qt::KeyboardModifier::AltModifier))
+    // Normalize wheel axis:
+    // - Vertical sidebar: transpose only when Alt is held (some platforms swap axes with Alt)
+    // - Horizontal sidebar: transpose unless Alt is held (platform already swapped)
+    const bool AltHeld = e->modifiers().testFlag(Qt::AltModifier);
+    const bool ShouldTranspose = d->isHorizontal() ? !AltHeld : AltHeld;
+    if (ShouldTranspose)
 	{
-		AngleDelta = e->angleDelta().transposed();
+        AngleDelta = AngleDelta.transposed();
 	}
 
 	QWheelEvent WheelEvent {
