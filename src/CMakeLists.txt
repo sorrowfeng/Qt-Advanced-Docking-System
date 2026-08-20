@@ -50,9 +50,11 @@ set(ads_DEP_LIBS
     Widgets
 )
 
-# On Unix systems other than macOS, ADS accesses Qt's private GUI API.
-# Qt 6 provides these headers through the GuiPrivate component.
-if(UNIX AND NOT APPLE AND QT_VERSION_MAJOR STREQUAL "6")
+# Qt 6.9+ provides the required private GUI headers through the GuiPrivate
+# component. Request it explicitly on supported Unix platforms.
+if(UNIX AND NOT APPLE
+   AND QT_VERSION_MAJOR STREQUAL "6"
+   AND QT_VERSION_MINOR GREATER_EQUAL 9)
     list(APPEND ads_DEP_LIBS GuiPrivate)
 endif()
 
@@ -246,13 +248,21 @@ target_include_directories(
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${library_name}>
 )
 
-# Qt 5 does not provide the Qt6::GuiPrivate-style target used below.
-# Add its private GUI include directories explicitly where required.
-if(UNIX AND NOT APPLE AND QT_VERSION_MAJOR STREQUAL "5")
-    target_include_directories(
-        ${library_name}
+# ---------------------------------------------------------------------------
+# Qt private GUI headers
+#
+# The Linux implementation requires access to private Qt GUI headers for
+# Qt 5 and Qt 6.9+. Keep these include directories private because they are
+# an implementation detail of QtAdvancedDockingSystem and must not become
+# part of its public interface.
+# ---------------------------------------------------------------------------
+if(UNIX AND NOT APPLE
+   AND (QT_VERSION_MAJOR STREQUAL "5"
+        OR (QT_VERSION_MAJOR STREQUAL "6"
+            AND QT_VERSION_MINOR GREATER_EQUAL 9)))
+    target_include_directories(${library_name}
         PRIVATE
-            ${Qt5Gui_PRIVATE_INCLUDE_DIRS}
+            ${Qt${QT_VERSION_MAJOR}Gui_PRIVATE_INCLUDE_DIRS}
     )
 endif()
 
