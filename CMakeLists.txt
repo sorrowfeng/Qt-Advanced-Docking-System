@@ -81,12 +81,18 @@ endif()
 # ---------------------------------------------------------------------------
 
 if(QtADS_IS_TOP_LEVEL)
-    # Enable USE_FOLDERS by default for generators supporting solution
-    # folders. CMP0143 was introduced with CMake 3.26.
+    # Enable folder organization by default for generators supporting it.
+    # CMP0143 was introduced with CMake 3.26.
     if(POLICY CMP0143)
         cmake_policy(SET CMP0143 NEW)
     endif()
+
+    # Enable parallel compilation when building with MSVC.
+    if(MSVC)
+        add_compile_options(/MP)
+    endif()
 endif()
+
 
 # ---------------------------------------------------------------------------
 # Library
