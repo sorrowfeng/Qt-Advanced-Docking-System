@@ -445,34 +445,49 @@ QSize CAutoHideSideBar::sizeHint() const
 #if QT_CONFIG(wheelevent)
 void CAutoHideSideBar::wheelEvent(QWheelEvent* e)
 {
-	QPoint AngleDelta = e->angleDelta();
+    QPoint AngleDelta = e->angleDelta();
 
-    // Normalize wheel axis:
-    // - Vertical sidebar: transpose only when Alt is held (some platforms swap axes with Alt)
-    // - Horizontal sidebar: transpose unless Alt is held (platform already swapped)
+            // Normalize wheel axis:
+            // - Vertical sidebar: transpose only when Alt is held
+            //   (some platforms swap axes with Alt).
+            // - Horizontal sidebar: transpose unless Alt is held
+            //   (platform already swapped).
     const bool AltHeld = e->modifiers().testFlag(Qt::AltModifier);
     const bool ShouldTranspose = d->isHorizontal() ? !AltHeld : AltHeld;
+
     if (ShouldTranspose)
-	{
-        AngleDelta = AngleDelta.transposed();
-	}
+    {
+        AngleDelta = QPoint(AngleDelta.y(), AngleDelta.x());
+    }
 
-	QWheelEvent WheelEvent {
-		e->position(),
-		e->globalPosition(),
-		e->pixelDelta(),
-		AngleDelta,
-		e->buttons(),
-		e->modifiers(),
-		e->phase(),
-		e->inverted(),
-		e->source()
 #if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
-		,e->pointingDevice()
+    QWheelEvent WheelEvent {
+        e->position(),
+        e->globalPosition(),
+        e->pixelDelta(),
+        AngleDelta,
+        e->buttons(),
+        e->modifiers(),
+        e->phase(),
+        e->inverted(),
+        e->source(),
+        e->pointingDevice()
+    };
+#else
+    QWheelEvent WheelEvent {
+        e->posF(),
+        e->globalPosF(),
+        e->pixelDelta(),
+        AngleDelta,
+        e->buttons(),
+        e->modifiers(),
+        e->phase(),
+        e->inverted(),
+        e->source()
+    };
 #endif
-	};
 
-	Super::wheelEvent(&WheelEvent);
+    Super::wheelEvent(&WheelEvent);
 }
 #endif
 
