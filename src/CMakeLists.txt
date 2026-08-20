@@ -358,7 +358,9 @@ write_basic_package_version_file(
 
 # Install public ADS headers.
 install(
-    FILES ${ads_HEADERS}
+    FILES
+        ${ads_HEADERS}
+        "${CMAKE_CURRENT_BINARY_DIR}/ads_version.h"
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${library_name}
     COMPONENT headers
 )
