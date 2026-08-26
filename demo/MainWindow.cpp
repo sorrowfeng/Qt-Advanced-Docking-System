@@ -396,7 +396,7 @@ struct MainWindowPrivate
 		DockWidget->setMinimumSizeHintMode(ads::CDockWidget::MinimumSizeHintFromContent);
 		auto ToolBar = DockWidget->createDefaultToolBar();
 		auto Action = ToolBar->addAction(svgIcon(":/adsdemo/images/fullscreen.svg"), "Toggle Fullscreen");
-		QObject::connect(Action, &QAction::triggered, [=]()
+		QObject::connect(Action, &QAction::triggered, [DockWidget]()
 			{
 				if (DockWidget->isFullScreen())
 				{
@@ -512,7 +512,7 @@ void MainWindowPrivate::createContent()
 	auto TitleBar = DockArea->titleBar();
 	int Index = TitleBar->indexOf(TitleBar->tabBar());
 	TitleBar->insertWidget(Index + 1, CustomButton);
-	QObject::connect(CustomButton, &QToolButton::clicked, [=]()
+	QObject::connect(CustomButton, &QToolButton::clicked, [DockArea, this]()
 	{
 		auto DockWidget = createEditorWidget();
 		DockWidget->setFeature(ads::CDockWidget::DockWidgetDeleteOnClose, true);
@@ -819,8 +819,12 @@ CMainWindow::CMainWindow(QWidget *parent) :
 	// uncomment if you would like to close tabs with the middle mouse button, web browser style
 	// CDockManager::setConfigFlag(CDockManager::MiddleMouseButtonClosesTab, true);
 
+	// uncomment if you would like to avoid using the built-in QSS stylesheet
+	// CDockManager::setConfigFlag(CDockManager::DisableStylesheet, true);
+
 	// Now create the dock manager and its content
 	d->DockManager = new CDockManager(this);
+	d->DockManager->setColorSchemeMode(CDockManager::ColorSchemeMode::FollowPalette);
 	d->DockManager->setDockWidgetToolBarStyle(Qt::ToolButtonIconOnly, ads::CDockWidget::StateFloating);
 
  #if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))

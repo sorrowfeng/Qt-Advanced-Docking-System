@@ -41,6 +41,7 @@
 #include <QVariant>
 #include <QDebug>
 #include <QFile>
+#include <QDialog>
 #include <QAction>
 #include <QXmlStreamWriter>
 #include <QSettings>
@@ -49,6 +50,7 @@
 #include <QWindow>
 #include <QWindowStateChangeEvent>
 #include <QVector>
+#include <QStyleHints>
 
 #include "FloatingDockContainer.h"
 #include "DockOverlay.h"
@@ -102,22 +104,6 @@ static QVector<QVariant> StaticConfigParams(CDockManager::ConfigParamCount);
 
 static QString FloatingContainersTitle;
 
-static void syncStyleSheetThemeFromConfigFlags()
-{
-	if (StaticConfigFlags.testFlag(CDockManager::FluentUILightStyleSheet))
-	{
-		StaticStyleSheetTheme = CDockManager::FluentUILightStyleSheetTheme;
-	}
-	else if (StaticConfigFlags.testFlag(CDockManager::FluentUIDarkStyleSheet))
-	{
-		StaticStyleSheetTheme = CDockManager::FluentUIDarkStyleSheetTheme;
-	}
-	else
-	{
-		StaticStyleSheetTheme = CDockManager::DefaultStyleSheetTheme;
-	}
-}
-
 /**
  * Private data class of CDockManager class (pimpl)
  */
@@ -134,9 +120,11 @@ struct DockManagerPrivate
 	QMap<QString, QMenu*> ViewMenuGroups;
 	QMenu* ViewMenu;
 	CDockManager::eViewMenuInsertionOrder MenuInsertionOrder = CDockManager::MenuAlphabeticallySorted;
+    CDockManager::ColorSchemeMode ColorSchemeMode = CDockManager::ColorSchemeMode::FollowPalette;
 	bool RestoringState = false;
 	QVector<CFloatingDockContainer*> UninitializedFloatingWidgets;
 	CDockFocusController* FocusController = nullptr;
+	QString RestoredFocusedDockWidget;
     CDockWidget* CentralWidget = nullptr;
     bool IsLeavingMinimized = false;
 	Qt::ToolButtonStyle ToolBarStyleDocked = Qt::ToolButtonIconOnly;
@@ -146,6 +134,7 @@ struct DockManagerPrivate
 	CDockWidget::DockWidgetFeatures LockedDockWidgetFeatures;
 	bool DockingOnDragEnabled = true;
 	QSharedPointer<ads::CDockComponentsFactory> ComponentFactory {ads::CDockComponentsFactory::factory()};
+	bool CurrentStylesheetDark;
 
 	/**
 	 * Private data constructor
@@ -220,10 +209,17 @@ DockManagerPrivate::DockManagerPrivate(CDockManager* _public) :
 //============================================================================
 void DockManagerPrivate::loadStylesheet()
 {
+	if (CDockManager::testConfigFlag(CDockManager::DisableStylesheet))
+	{
+		return;
+	}
 	initResource();
 	QString Result;
 	QString FileName = ":ads/stylesheets/";
     QString BaseName = "default";
+	// The bundled themes ship a single fixed css file without _linux/_dark
+	// variants, the default theme provides platform and dark mode variants
+	bool HasVariants = false;
 	switch (CDockManager::styleSheetTheme())
 	{
 	case CDockManager::FluentUILightStyleSheetTheme:
@@ -237,6 +233,7 @@ void DockManagerPrivate::loadStylesheet()
 		break;
 	case CDockManager::DefaultStyleSheetTheme:
 	default:
+		HasVariants = true;
 		if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
 		{
 			BaseName = "focus_highlighting";
@@ -244,9 +241,23 @@ void DockManagerPrivate::loadStylesheet()
 		break;
 	}
     FileName += BaseName;
+    if (HasVariants)
+    {
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
-    FileName += "_linux";
+        FileName += "_linux";
 #endif
+        if (_this->isDesiredStylesheetDark()) {
+            CurrentStylesheetDark = true;
+            FileName += "_dark";
+        }
+        else
+            CurrentStylesheetDark = false;
+    }
+    else
+    {
+        CurrentStylesheetDark =
+            (CDockManager::styleSheetTheme() == CDockManager::FluentUIDarkStyleSheetTheme);
+    }
     FileName += ".css";
 	QFile StyleSheetFile(FileName);
 	StyleSheetFile.open(QIODevice::ReadOnly);
@@ -359,6 +370,12 @@ bool DockManagerPrivate::restoreStateFromXml(const QByteArray &state,  int versi
 		}
     }
 
+	if (!Testing)
+	{
+		// Store the saved focused dock widget name so it can be reapplied after stale focus styling is cleared.
+		RestoredFocusedDockWidget = s.attributes().value("FocusedDockWidget").toString();
+	}
+
     int DockContainerCount = 0;
     while (s.readNextStartElement())
     {
@@ -381,7 +398,12 @@ bool DockManagerPrivate::restoreStateFromXml(const QByteArray &state,  int versi
 		{
 			CFloatingDockContainer* floatingWidget = FloatingWidgets[i];
 			if (!floatingWidget) continue;
-			_this->removeDockContainer(floatingWidget->dockContainer());
+			// Use removeFromDockManager() (introduced in upstream commit 544c624) instead
+			// of removeDockContainer() so the container's back-pointer to the manager is
+			// cleared. Otherwise ~CDockContainerWidget() (called when deleteLater() fires)
+			// would try to remove this container a second time, tripping the
+			// Q_ASSERT(removed == 1) check in CDockManager::removeDockContainer().
+			floatingWidget->dockContainer()->removeFromDockManager();
 			floatingWidget->deleteLater();
 		}
     }
@@ -574,8 +596,26 @@ CDockManager::CDockManager(QWidget *parent) :
             return;
         }
 
-        // bring the main application window that hosts the dock manager and all floating
-        // widgets in front of any other application
+        auto widget = QWidget::find(focusWindow->winId());
+        if (!widget)
+        {
+            return;
+        }
+
+        // Only restack windows while a floating dock widget is actively being dragged.
+        // Reacting to ordinary focus changes makes this handler raise() multiple
+        // top-level windows, which can transfer focus and re-emit focusWindowChanged,
+        // re-entering this handler in a self-sustaining loop that never settles -
+        // visible as constant flicker on Linux/X11. Gating on an
+        // active drag breaks that loop: outside a drag we do nothing.
+        const bool draggingActive = std::any_of(
+            d->FloatingWidgets.begin(), d->FloatingWidgets.end(),
+            [](CFloatingDockContainer* fw){ return fw && fw->isDraggingActive(); });
+        if (!draggingActive)
+        {
+            return;
+        }
+
         this->raise();
         for (auto FloatingWidget : d->FloatingWidgets)
         {
@@ -664,14 +704,20 @@ void CDockManager::setComponentsFactory(QSharedPointer<ads::CDockComponentsFacto
 
 
 //============================================================================
-#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
 bool CDockManager::eventFilter(QObject *obj, QEvent *e)
 {
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
 	// Emulate Qt:Tool behaviour.
 	// Required because on some WMs Tool windows can't be maximized.
 
+	// Wayland: skip the stays-on-top emulation. The compositor owns the
+	// window stacking, and changing the window flags of a shown window
+	// recreates its surface, which would detach a running platform drag.
+	// The minimize synchronization below does not change window flags and
+	// is kept.
+
 	// Window always on top of the MainWindow.
-	if (e->type() == QEvent::WindowActivate)
+	if (!internal::isWayland() && e->type() == QEvent::WindowActivate)
 	{
         for (auto _window : d->FloatingWidgets)
 		{
@@ -693,7 +739,7 @@ bool CDockManager::eventFilter(QObject *obj, QEvent *e)
 			}
         }
 	}
-	else if (e->type() == QEvent::WindowDeactivate)
+	else if (!internal::isWayland() && e->type() == QEvent::WindowDeactivate)
 	{
         for (auto _window : d->FloatingWidgets)
 		{
@@ -739,12 +785,7 @@ bool CDockManager::eventFilter(QObject *obj, QEvent *e)
 			QApplication::setActiveWindow(window());
 		}
 	}
-	return Super::eventFilter(obj, e);
-}
 #else
-//============================================================================
-bool CDockManager::eventFilter(QObject *obj, QEvent *e)
-{
 	if (e->type() == QEvent::WindowStateChange)
 	{
 		QWindowStateChangeEvent* ev = static_cast<QWindowStateChangeEvent*>(e);
@@ -754,9 +795,15 @@ bool CDockManager::eventFilter(QObject *obj, QEvent *e)
 			QMetaObject::invokeMethod(this, "endLeavingMinimizedState", Qt::QueuedConnection);
 		}
 	}
+#endif
+    if (e->type() == QEvent::ApplicationPaletteChange && d->ColorSchemeMode == CDockManager::ColorSchemeMode::FollowPalette)
+	{
+		if (d->CurrentStylesheetDark != isDesiredStylesheetDark()) {
+			d->loadStylesheet();
+		}
+	}
 	return Super::eventFilter(obj, e);
 }
-#endif
 
 
 //============================================================================
@@ -786,7 +833,8 @@ void CDockManager::registerFloatingWidget(CFloatingDockContainer* FloatingWidget
 //============================================================================
 void CDockManager::removeFloatingWidget(CFloatingDockContainer* FloatingWidget)
 {
-	d->FloatingWidgets.removeAll(FloatingWidget);
+	int removed = d->FloatingWidgets.removeAll(FloatingWidget);
+	Q_ASSERT(removed == 1);
 }
 
 //============================================================================
@@ -801,7 +849,8 @@ void CDockManager::removeDockContainer(CDockContainerWidget* DockContainer)
 {
 	if (this != DockContainer)
 	{
-		d->Containers.removeAll(DockContainer);
+		int removed = d->Containers.removeAll(DockContainer);
+		Q_ASSERT(removed == 1);
 	}
 }
 
@@ -862,6 +911,10 @@ QByteArray CDockManager::saveState(int version) const
 		{
 			s.writeAttribute("CentralWidget", d->CentralWidget->objectName());
 		}
+		if (auto FocusedDockWidget = focusedDockWidget())
+		{
+			s.writeAttribute("FocusedDockWidget", FocusedDockWidget->objectName());
+		}
 		for (auto Container : d->Containers)
 		{
 			Container->saveState(s);
@@ -907,6 +960,13 @@ bool CDockManager::restoreState(const QByteArray &state, int version)
 		show();
 	}
 	Q_EMIT stateRestored();
+	if (Result && !d->RestoredFocusedDockWidget.isEmpty())
+	{
+		if (auto DockWidget = findDockWidget(d->RestoredFocusedDockWidget))
+		{
+			setDockWidgetFocused(DockWidget);
+		}
+	}
 	return Result;
 }
 
@@ -959,6 +1019,35 @@ void CDockManager::showEvent(QShowEvent *event)
 		}
 	}
 	d->UninitializedFloatingWidgets.clear();
+}
+
+
+//============================================================================
+void CDockManager::changeEvent(QEvent *event)
+{
+	Super::changeEvent(event);
+
+	// Wayland: floating widgets have no parent widget, so a style sheet set on
+	// this dock manager or one of its ancestors does not reach them through the
+	// widget hierarchy (an application wide qApp style sheet is still applied
+	// automatically by Qt). A QEvent::StyleChange on the dock manager fires both
+	// for its own style sheet and - because the change propagates down to
+	// descendants - for an ancestor's, so re-apply the inherited style sheet to
+	// every floating widget here to keep them matching the docked content.
+	// Re-applying cannot recurse: the floating widgets are not children of this
+	// dock manager, so it does not receive their StyleChange events.
+	if (event->type() == QEvent::StyleChange && internal::isWayland())
+	{
+		const QString StyleSheet =
+			CFloatingDockContainer::waylandInheritedStyleSheet(this);
+		for (auto FloatingWidget : d->FloatingWidgets)
+		{
+			if (FloatingWidget)
+			{
+				FloatingWidget->setStyleSheet(StyleSheet);
+			}
+		}
+	}
 }
 
 
@@ -1273,6 +1362,18 @@ void CDockManager::setViewMenuInsertionOrder(eViewMenuInsertionOrder Order)
 }
 
 
+//============================================================================
+void CDockManager::setColorSchemeMode(ColorSchemeMode Mode)
+{
+    d->ColorSchemeMode = Mode;
+
+	if (d->CurrentStylesheetDark != isDesiredStylesheetDark()) {
+		d->loadStylesheet();
+		ensurePolished();
+	}
+}
+
+
 //===========================================================================
 bool CDockManager::isRestoringState() const
 {
@@ -1308,7 +1409,6 @@ CDockManager::eStyleSheetTheme CDockManager::styleSheetTheme()
 void CDockManager::setConfigFlags(const ConfigFlags Flags)
 {
 	StaticConfigFlags = Flags;
-	syncStyleSheetThemeFromConfigFlags();
 }
 
 
@@ -1321,10 +1421,6 @@ void CDockManager::setAutoHideConfigFlags(const AutoHideFlags Flags)
 void CDockManager::setStyleSheetTheme(eStyleSheetTheme Theme)
 {
 	StaticStyleSheetTheme = Theme;
-	internal::setFlag(StaticConfigFlags, FluentUILightStyleSheet,
-		Theme == FluentUILightStyleSheetTheme);
-	internal::setFlag(StaticConfigFlags, FluentUIDarkStyleSheet,
-		Theme == FluentUIDarkStyleSheetTheme);
 }
 
 
@@ -1332,23 +1428,6 @@ void CDockManager::setStyleSheetTheme(eStyleSheetTheme Theme)
 void CDockManager::setConfigFlag(eConfigFlag Flag, bool On)
 {
 	internal::setFlag(StaticConfigFlags, Flag, On);
-	if (Flag == FluentUILightStyleSheet || Flag == FluentUIDarkStyleSheet)
-	{
-		if (On && Flag == FluentUILightStyleSheet)
-		{
-			internal::setFlag(StaticConfigFlags, FluentUIDarkStyleSheet, false);
-			StaticStyleSheetTheme = FluentUILightStyleSheetTheme;
-		}
-		else if (On && Flag == FluentUIDarkStyleSheet)
-		{
-			internal::setFlag(StaticConfigFlags, FluentUILightStyleSheet, false);
-			StaticStyleSheetTheme = FluentUIDarkStyleSheetTheme;
-		}
-		else
-		{
-			syncStyleSheetThemeFromConfigFlags();
-		}
-	}
 }
 
 
@@ -1640,6 +1719,28 @@ void CDockManager::raise()
     {
         parentWidget()->raise();
     }
+}
+
+
+//============================================================================
+bool CDockManager::isApplicationPaletteDark()
+{
+    QPalette appPalette = QGuiApplication::palette();
+    
+    // Extract the background and foreground colors
+    QColor windowColor = appPalette.color(QPalette::Window);
+    QColor textColor = appPalette.color(QPalette::WindowText);
+    
+    // Check lightness values (0.0 = black, 1.0 = white)
+    // If text is lighter than the background, the app palette is dark
+    return textColor.lightnessF() > windowColor.lightnessF();
+}
+
+
+//============================================================================
+bool CDockManager::isDesiredStylesheetDark()
+{
+    return ((isApplicationPaletteDark() && d->ColorSchemeMode == ColorSchemeMode::FollowPalette) || d->ColorSchemeMode == ColorSchemeMode::Dark);
 }
 
 

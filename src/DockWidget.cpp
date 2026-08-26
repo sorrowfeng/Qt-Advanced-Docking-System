@@ -165,7 +165,8 @@ struct DockWidgetPrivate
 	WidgetFactory* Factory = nullptr;
 	QPointer<CAutoHideTab> SideTabWidget;
 	CDockWidget::eToolBarStyleSource ToolBarStyleSource = CDockWidget::ToolBarStyleFromDockManager;
-	
+	SideBarLocation PreferredAutoHideSideBarLocation = SideBarNone;
+
 	/**
 	 * Private data constructor
 	 */
@@ -557,8 +558,6 @@ CDockWidget::CDockWidget(CDockManager *manager, const QString &title, QWidget* p
 	setWindowTitle(title);
 	setObjectName(title);
 
-	d->TabWidget = d->componentsFactory()->createDockWidgetTab(this);
-
 	d->ToggleViewAction = new QAction(title, this);
 	d->ToggleViewAction->setCheckable(true);
 	connect(d->ToggleViewAction, SIGNAL(triggered(bool)), this,
@@ -568,6 +567,11 @@ CDockWidget::CDockWidget(CDockManager *manager, const QString &title, QWidget* p
 	if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
 	{
 		setFocusPolicy(Qt::ClickFocus);
+	}
+
+	if (CDockManager::testConfigFlag(CDockManager::UseNativeWindows))
+	{
+		winId();
 	}
 }
 
@@ -681,6 +685,10 @@ QWidget* CDockWidget::widget() const
 //============================================================================
 CDockWidgetTab* CDockWidget::tabWidget() const
 {
+	if (!d->TabWidget)
+	{
+		d->TabWidget = d->componentsFactory()->createDockWidgetTab(const_cast<CDockWidget*>(this));
+	}
 	return d->TabWidget;
 }
 
@@ -713,7 +721,7 @@ void CDockWidget::setFeatures(DockWidgetFeatures features)
 void CDockWidget::notifyFeaturesChanged()
 {
 	Q_EMIT featuresChanged(d->Features);
-	d->TabWidget->onDockWidgetFeaturesChanged();
+	tabWidget()->onDockWidgetFeaturesChanged();
 	if(CDockAreaWidget* DockArea = dockAreaWidget())
 	{
 		DockArea->onDockWidgetFeaturesChanged();
@@ -824,6 +832,20 @@ SideBarLocation CDockWidget::autoHideLocation() const
 
 
 //============================================================================
+void CDockWidget::setPreferredAutoHideSideBarLocation(SideBarLocation Location)
+{
+	d->PreferredAutoHideSideBarLocation = Location;
+}
+
+
+//============================================================================
+SideBarLocation CDockWidget::preferredAutoHideSideBarLocation() const
+{
+	return d->PreferredAutoHideSideBarLocation;
+}
+
+
+//============================================================================
 bool CDockWidget::isFloating() const
 {
 	if (!isInFloatingContainer())
@@ -878,7 +900,7 @@ void CDockWidget::setToggleViewActionMode(eToggleViewActionMode Mode)
 	else
 	{
 		d->ToggleViewAction->setCheckable(false);
-		d->ToggleViewAction->setIcon(d->TabWidget->icon());
+		d->ToggleViewAction->setIcon(tabWidget()->icon());
 	}
 }
 
@@ -1066,7 +1088,7 @@ bool CDockWidget::event(QEvent *e)
 			}
 			if (d->DockArea)
 			{
-				d->DockArea->markTitleBarMenuOutdated();//update tabs menu
+				d->DockArea->updateWindowTitle();
 			}
 
 			auto FloatingWidget = floatingDockContainer();
@@ -1109,7 +1131,7 @@ void CDockWidget::setTabToolTip(const QString &text)
 //============================================================================
 void CDockWidget::setIcon(const QIcon& Icon)
 {
-	d->TabWidget->setIcon(Icon);
+	tabWidget()->setIcon(Icon);
 
 	if (d->SideTabWidget)
 	{
@@ -1126,7 +1148,7 @@ void CDockWidget::setIcon(const QIcon& Icon)
 //============================================================================
 QIcon CDockWidget::icon() const
 {
-	return d->TabWidget->icon();
+	return tabWidget()->icon();
 }
 
 
@@ -1309,7 +1331,7 @@ void CDockWidget::setFloating()
 	}
 	else
 	{
-		d->TabWidget->detachDockWidget();
+		tabWidget()->detachDockWidget();
 	}
 }
 
@@ -1520,7 +1542,15 @@ void CDockWidget::setAutoHide(bool Enable, SideBarLocation Location, int TabInde
 	}
 	else
 	{
-		auto area = (SideBarNone == Location) ? DockArea->calculateSideTabBarArea() : Location;
+		auto area = Location;
+		if (SideBarNone == area && d->PreferredAutoHideSideBarLocation != SideBarNone)
+		{
+			area = d->PreferredAutoHideSideBarLocation;
+		}
+		else if (SideBarNone == area)
+		{
+			area = DockArea->calculateSideTabBarArea();
+		}
 		dockContainer()->createAndSetupAutoHideContainer(area, this, TabIndex);
 	}
 }
