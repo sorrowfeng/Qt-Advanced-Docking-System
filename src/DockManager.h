@@ -595,6 +595,21 @@ public:
 	QStringList perspectiveNames() const;
 
 	/**
+	 * Returns the raw state data (XML, possibly compressed) of the given
+	 * perspective, or a null QByteArray if it does not exist.
+	 * This allows an application to inspect / migrate saved perspective
+	 * data before it is applied by openPerspective().
+	 */
+	QByteArray perspectiveData(const QString& Name) const;
+
+	/**
+	 * Replaces the raw state data of an existing perspective.
+	 * Does nothing if a perspective with the given name does not exist.
+	 * \see perspectiveData()
+	 */
+	void setPerspectiveData(const QString& Name, const QByteArray& Data);
+
+	/**
 	 * Saves the perspectives to the given settings file.
 	 */
 	void savePerspectives(QSettings& Settings) const;

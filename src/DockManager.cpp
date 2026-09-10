@@ -1213,6 +1213,30 @@ QStringList CDockManager::perspectiveNames() const
 
 
 //============================================================================
+QByteArray CDockManager::perspectiveData(const QString& Name) const
+{
+	const auto Iterator = d->Perspectives.find(Name);
+	if (d->Perspectives.end() == Iterator)
+	{
+		return QByteArray();
+	}
+	return Iterator.value();
+}
+
+
+//============================================================================
+void CDockManager::setPerspectiveData(const QString& Name, const QByteArray& Data)
+{
+	const auto Iterator = d->Perspectives.find(Name);
+	if (d->Perspectives.end() == Iterator)
+	{
+		return;
+	}
+	Iterator.value() = Data;
+}
+
+
+//============================================================================
 void CDockManager::openPerspective(const QString& PerspectiveName)
 {
 	const auto Iterator = d->Perspectives.find(PerspectiveName);

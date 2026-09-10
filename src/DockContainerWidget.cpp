@@ -2301,6 +2301,19 @@ void CDockContainerWidget::saveState(QXmlStreamWriter& s) const
     ADS_PRINT("CDockContainerWidget::saveState isFloating "
         << isFloating());
 
+	// A floating container that holds neither a dock widget nor an auto hide
+	// widget is a leftover shell - older versions of the application wrote
+	// such containers into the saved state. Restoring one would recreate an
+	// empty CFloatingDockContainer and pay the cost of a native window
+	// creation (winId()) for nothing. Skip it: because it contains no widget
+	// at all, there is no floating state that could be lost. Containers that
+	// hold at least one widget (visible or hidden) are always written out, so
+	// a panel the user really pulled out stays floating across restarts.
+	if (isFloating() && dockWidgets().isEmpty() && d->AutoHideWidgets.isEmpty())
+	{
+		return;
+	}
+
 	s.writeStartElement("Container");
 	s.writeAttribute("Floating", QString::number(isFloating() ? 1 : 0));
 	if (isFloating())
