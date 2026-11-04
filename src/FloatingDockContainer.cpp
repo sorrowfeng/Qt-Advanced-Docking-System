@@ -1048,7 +1048,7 @@ void CFloatingDockContainer::changeEvent(QEvent *event)
 		// We simply check here, if the FloatingWidget was maximized before
 		// and if the DockManager is just leaving the minimized state. In this
 		// case, we restore the maximized state of this floating widget
-		if (d->DockManager->isLeavingMinimizedState())
+		if (d->DockManager && d->DockManager->isLeavingMinimizedState())
 		{
 			QWindowStateChangeEvent* ev = static_cast<QWindowStateChangeEvent*>(event);
 			if (ev->oldState().testFlag(Qt::WindowMaximized))
@@ -1312,7 +1312,7 @@ void CFloatingDockContainer::hideEvent(QHideEvent *event)
     }
 
     // Prevent toogleView() events during restore state
-    if (d->DockManager->isRestoringState())
+    if (!d->DockManager || d->DockManager->isRestoringState())
     {
         return;
     }
@@ -1784,7 +1784,8 @@ Qt::DropAction CFloatingDockContainer::startPlatformDrag(
 
 //============================================================================
 bool CFloatingDockContainer::waylandMoveOrLeaveInWindowPreview(
-	CFloatingDragPreview* Preview, QWidget* SourceWindow, const QPoint& GlobalPos)
+	CFloatingDragPreview* Preview, QWidget* SourceWindow, const QPoint& GlobalPos,
+	const bool Floatable)
 {
 	const QPoint InWindow = SourceWindow->mapFromGlobal(GlobalPos);
 	if (SourceWindow->rect().contains(InWindow))
@@ -1800,11 +1801,14 @@ bool CFloatingDockContainer::waylandMoveOrLeaveInWindowPreview(
 	// drop. The caller converts the gesture into a native compositor platform
 	// drag while the implicit pointer grab from the original press is still
 	// active, which is what QDrag::exec() / xdg_toplevel_drag_v1 requires.
-	if (Preview)
+	// 不可浮动的 DockWidget 在这里不做处理, 交给调用方继续走普通拖拽;
+	// 只有可浮动项才把预览就地取消并转为平台原生拖拽(上游 #873)。
+	if (Preview && Floatable)
 	{
 		Preview->cancelDraggingSilently();
+		return false;
 	}
-	return false;
+	return true;
 }
 
 
