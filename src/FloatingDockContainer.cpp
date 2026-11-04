@@ -1174,7 +1174,15 @@ static inline void emulateLeaveEvent(QWidget* widget) {
 void CFloatingDockContainer::installWindowAgent()
 {
   d->windowAgent = new QWK::WidgetWindowAgent(this);
-  d->windowAgent->setup(this);
+  if (!d->windowAgent->setup(this))
+  {
+    // QWindowKit 不可用(个别机器 DWM/钩子环境)时不要创建自绘标题栏:
+    // 否则系统标题栏与自绘标题栏并存,表现为一条黑色标题栏且点不到按钮。
+    qWarning() << "[ADS] QWindowKit setup failed for floating container, keep system frame";
+    delete d->windowAgent;
+    d->windowAgent = nullptr;
+    return;
+  }
 
   auto titleLabel = new QLabel();
   titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
