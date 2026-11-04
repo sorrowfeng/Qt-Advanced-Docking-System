@@ -783,6 +783,29 @@ void FloatingDockContainerPrivate::handleEscapeKey()
 
 
 //============================================================================
+// 运行期开关:默认开启(编译期 FLOATING_DOCK_FRAMELESS=ON 时);关闭后浮动窗口用系统边框。
+static bool sFloatingFramelessEnabled = true;
+
+void CFloatingDockContainer::setFloatingFramelessEnabled(bool enabled)
+{
+	sFloatingFramelessEnabled = enabled;
+}
+
+bool CFloatingDockContainer::isFloatingFramelessEnabled()
+{
+	// 环境变量可作为现场应急开关:ADS_FLOATING_FRAMELESS=0 关闭自绘标题栏
+	if (qEnvironmentVariableIsSet("ADS_FLOATING_FRAMELESS"))
+	{
+		const QString value = qEnvironmentVariable("ADS_FLOATING_FRAMELESS").trimmed();
+		if (value == QLatin1String("0") || value.compare(QLatin1String("false"), Qt::CaseInsensitive) == 0)
+		{
+			return false;
+		}
+	}
+	return sFloatingFramelessEnabled;
+}
+
+//============================================================================
 // Wayland: a floating widget that is a child of the dock manager makes Qt
 // turn the dock manager and all of its child widgets into native windows
 // when the floating widget is shown. Native child widgets are
@@ -906,7 +929,10 @@ CFloatingDockContainer::CFloatingDockContainer(CDockManager *DockManager) :
 	DockManager->registerFloatingWidget(this);
 
 #if FLOATING_DOCK_FRAMELESS
-    installWindowAgent();
+    if (isFloatingFramelessEnabled())
+    {
+        installWindowAgent();
+    }
 #endif
 }
 

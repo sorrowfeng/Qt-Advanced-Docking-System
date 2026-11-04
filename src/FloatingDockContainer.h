@@ -243,6 +243,11 @@ protected: // reimplements QWidget
 
 
 public:
+    /// 运行期开关:是否给浮动窗口用无边框(自绘标题栏)。
+    /// 关闭后浮动窗口走系统边框,与 FLOATING_DOCK_FRAMELESS=OFF 的视觉效果一致。
+    static void setFloatingFramelessEnabled(bool enabled);
+    static bool isFloatingFramelessEnabled();
+
 	using Super = tFloatingWidgetBase;
 
 	/**
